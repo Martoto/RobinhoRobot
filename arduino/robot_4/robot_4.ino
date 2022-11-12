@@ -54,9 +54,17 @@ void reseGpio() {
 char cmdTreatment(char cmd) {
   char resp;
   if (cmd == 'w') {
-    motor1_velocity = 200;
-    motor2_velocity = 200;
-    resp = cmd;
+    
+    while (!Serial.available()) {
+      
+      if (Serial.available()) {
+        motor1_velocity = Serial.read();
+        motor2_velocity = motor1_velocity;
+        Serial.write(motor1_velocity);
+      }
+    }
+
+    resp = motor1_velocity;
   }
   
   else if (cmd == 's') {
