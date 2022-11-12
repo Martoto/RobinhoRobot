@@ -1,23 +1,15 @@
 import socket
 
+host = "10.0.0.100"  # as both code is running on same pc
+port = 80  # socket server port number
 
-def client_program():
-	print("teste")
-	port = 80  # socket server port number#
-	host = "192.168.245.250"
-	cl = socket.socket()  # instantiate
-	cl.connect((host, port))  # connect to the server
+client_socket = socket.socket()  # instantiate
+client_socket.connect((host, port))  # connect to the server
 
-	cl.send("oi esp")
+while(1):
+	data = input(" -> ")
+	client_socket.send(data.encode())
+	data = client_socket.recv(1024).decode()  # receive response
+	print('msg:' + data)  # show in terminal
 
-	teste = cl.recv(1024).decode()
-	print(teste)
-	while teste != "oi PC":
-		teste = cl.recv(1024).decode()
-		print(teste)
-		
-
-	cl.send("tudo certo")
-
-
-client_program()
+client_socket.close()  # close the connection

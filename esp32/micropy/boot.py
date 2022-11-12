@@ -5,8 +5,11 @@ import webrepl
 import network
 webrepl.start()
 sta_if = network.WLAN(network.STA_IF); sta_if.active(True)
-sta_if.connect("lukn23","12345678")
+sta_if.connect("INTELBRAS","LESC12345")
+#sta_if.connect("lukn23","12345678")
 #sta_if.connect("CLARO5GDCC6B8","azUmycWqc7")
+#sta_if.connect("BIOINFO-IC","b10cp3g1")
+
 
 #uart = machine.UART(1, 9600, rx=12, tx=13)
 #uart.init(9600, bits=8, parity=None, stop=1)

@@ -1,7 +1,7 @@
 import machine
 from machine import Pin
 import time
-import camera
+import esp32.micropy.camera_uart as camera_uart
 from machine import UART
 uart = machine.UART(1, 9600, rx=12, tx=13)
 uart.init(9600, bits=8, parity=None, stop=1)
