@@ -10,17 +10,27 @@ void setup() {
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
-  char teste;
+  char teste[5];
+  float pose;
   if(Serial.available())
   {
-    teste = Serial.read();
-    myserial.write(teste);
+    char tes = Serial.read();
+    myserial.write(tes);
   }
 
   if(myserial.available())
   {
-    teste = myserial.read();
-    Serial.print(teste);
+    char tes = myserial.read();
+    Serial.println(tes);
+    if(tes == 0b00000000)
+    {
+      for(int i=0; i<5; i++)
+      {
+        while(!myserial.available()){}
+        teste[i] = myserial.read();
+      }
+      pose = atof(teste);
+      Serial.println(pose);
+    }    
   }
 }
