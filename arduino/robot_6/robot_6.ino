@@ -13,16 +13,21 @@ int motor2_velocity = 0;
 
 volatile byte m1e_count = 0;
 volatile byte m2e_count = 0;
+volatile unsigned long m1e_last = 0;
+volatile unsigned long m2e_last = 0;
+
 
 //Altere o numero abaixo de acordo com o seu disco encoder
 const unsigned int pulsos_por_volta = 20;
 
 void m1e_i() {
   m1e_count++;
+  m1e_last = millis();
 }
 
 void m2e_i() {
   m2e_count++;
+  m2e_last = millis();
 }
 
 void setLock() {
@@ -33,6 +38,8 @@ void setLock() {
 }
 
 void setVelocity(int motor1, int motor2) {
+  motor1 = constrain(motor1, 0, 255);
+  motor2 = constrain(motor2, 0, 255);
   if (motor1 == 0) {
     analogWrite(m1p1, 0);
     analogWrite(m1p2, 0);
@@ -151,7 +158,7 @@ void loop() {
   unsigned int m1e_total_count = 0;
   unsigned int m2e_total_count = 0;
   unsigned long timeold = 0;
-  int b = 50;
+  int b = 70;
 
   int mstate = 0;
   unsigned long mstate_timer = 0;
@@ -203,7 +210,8 @@ void loop() {
 
 
       case 2:
-        if ((m1e_total_count + m1e_count + m2e_total_count + m2e_count) >= 40) {
+        //if ((m1e_total_count + m1e_count + m2e_total_count + m2e_count) >= 28) {
+        if (max(m1e_total_count + m1e_count, m2e_total_count + m2e_count) >= 15) {
           base = 0;
           dj = 0;
           m1e_total_count = 0;
@@ -219,84 +227,48 @@ void loop() {
           pixels.setPixelColor(0, pixels.Color(0, 200, 0));
 
         } else {
-          const int timestep = 300;
-          unsigned long mil = millis();
+          disable_encoder_interrupts();
 
-
-          if (mil - timeold >= timestep) {
-            disable_encoder_interrupts();
-
-            int m1rpm = (60 * timestep / pulsos_por_volta) / (mil - timeold) * m1e_count;
-            int m2rpm = (60 * timestep / pulsos_por_volta) / (mil - timeold) * m2e_count;
-            // cmdVelMsg.linear.x = (-1)*cstP*deltaX + cstI*(deltaX*(time-last_time)) + cstD*(deltaX-last_deltaX)/(time-last_time);
-            /*
-            int deltarpm1 = m1rpm-120;
-            int last_deltarpm1;
-            int cstP = 1;
-            int cstI = 0;
-            int cstD = 0;
-            int m1out = (-1)*cstP*deltarpm1 + cstI*(deltarpm1*(millis()-timeold)) + cstD*(deltarpm1-last_deltarpm1)/(millis()-timeold);    
-            last_deltarpm1 = deltarpm1;
-        
-            int deltarpm1 = m1rpm-120;
-            int last_deltarpm1;
-            int cstP = 1;
-            int cstI = 0;
-            int cstD = 0;
-            int m1out = (-1)*cstP*deltarpm1 + cstI*(deltarpm1*(millis()-timeold)) + cstD*(deltarpm1-last_deltarpm1)/(millis()-timeold);    
-            last_deltarpm1 = deltarpm1;
-              */
-
-            if (!m1rpm && !m2rpm) {
-              base += 5;
-              dj = 0;
-            }
-
-
-            dj += (m2rpm - m1rpm);
-            dj = constrain(dj, -30, 30);
-            if (dj > 0) {
-              setVelocity(base + b + dj, base + b);
-            } else {
-              setVelocity(base + b, base + b - dj);
-            }
-            // setVelocity(100, 100);
-
-            timeold = mil;
-
-            m1e_total_count += m1e_count;
-            m2e_total_count += m2e_count;
-            //Mostra o valor de RPM no serial monitor
-
-            Serial.print("PWM = ");
-            Serial.println(base, DEC);
-            Serial.print("dj = ");
-            Serial.println(dj, DEC);
-
-            Serial.print("C1 = ");
-            Serial.println(m1e_count, DEC);
-            Serial.print("C2 = ");
-            Serial.println(m2e_count, DEC);
-
-            Serial.print("RPM1 = ");
-            Serial.println(m1rpm, DEC);
-            Serial.print("RPM2 = ");
-            Serial.println(m2rpm, DEC);
-
-            m1e_count = 0;
-            m2e_count = 0;
-
-
-            enable_encoder_interrupts();
-
-
-            Serial.print("tt = ");
-            Serial.println(mil, DEC);
-
-            Serial.println(millis(), DEC);
-
-            //basevel = (basevel + 3) % 255;
+          const int BASETIME = 150;
+          if ((millis() - m1e_last > BASETIME) || (millis() - m2e_last > BASETIME)) {
+            base += 8*max((millis() - m1e_last)/BASETIME, (millis() - m2e_last)/BASETIME);
           }
+
+          base = constrain(base, 0, 255);
+
+          m1e_total_count += m1e_count;
+          m2e_total_count += m2e_count;
+
+          dj = (m2e_total_count - m1e_total_count) * 25;
+          //dj = constrain(dj, -40, 40);
+
+          if (dj > 0) {
+            setVelocity(base + b + dj, base + b);
+          } else {
+            setVelocity(base + b, base + b - dj);
+          }
+
+          Serial.print("PWM = ");
+          Serial.println(base, DEC);
+          Serial.print("dj = ");
+          Serial.println(dj, DEC);
+          Serial.print("C1 = ");
+          Serial.println(m1e_count, DEC);
+          Serial.print("C2 = ");
+          Serial.println(m2e_count, DEC);
+          Serial.print("T1 = ");
+          Serial.println(m1e_total_count, DEC);
+          Serial.print("T2 = ");
+          Serial.println(m2e_total_count, DEC);
+
+          m1e_count = 0;
+          m2e_count = 0;
+
+          enable_encoder_interrupts();
+
+          Serial.println(millis(), DEC);
+
+          //basevel = (basevel + 3) % 255;
         }
         break;
       case 3:
