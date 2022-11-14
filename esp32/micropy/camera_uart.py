@@ -1,5 +1,6 @@
 import machine
 import time
+import camera
 from machine import Pin
 from machine import UART
 
