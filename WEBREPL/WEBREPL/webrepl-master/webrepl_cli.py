@@ -211,44 +211,44 @@ Sec-WebSocket-Key: foo\r
 #        sys.stdout.write(l)
 
 
-def main():
-    if len(sys.argv) not in (3, 5):
-        help(1)
+def robinho_send(op, host, port, passwd, src_file, dst_file):
+    # if len(sys.argv) not in (3, 5):
+    #     help(1)
 
-    passwd = None
-    for i in range(len(sys.argv)):
-        if sys.argv[i] == '-p':
-            sys.argv.pop(i)
-            passwd = sys.argv.pop(i)
-            break
+    # passwd = None
+    # for i in range(len(sys.argv)):
+    #     if sys.argv[i] == '-p':
+    #         sys.argv.pop(i)
+    #         passwd = sys.argv.pop(i)
+    #         break
 
-    if not passwd:
-        import getpass
-        passwd = getpass.getpass()
+    # if not passwd:
+    #     import getpass
+    #     passwd = getpass.getpass()
 
-    if ":" in sys.argv[1] and ":" in sys.argv[2]:
-        error("Operations on 2 remote files are not supported")
-    if ":" not in sys.argv[1] and ":" not in sys.argv[2]:
-        error("One remote file is required")
+    # if ":" in sys.argv[1] and ":" in sys.argv[2]:
+    #     error("Operations on 2 remote files are not supported")
+    # if ":" not in sys.argv[1] and ":" not in sys.argv[2]:
+    #     error("One remote file is required")
 
-    if ":" in sys.argv[1]:
-        op = "get"
-        host, port, src_file = parse_remote(sys.argv[1])
-        dst_file = sys.argv[2]
-        if os.path.isdir(dst_file):
-            basename = src_file.rsplit("/", 1)[-1]
-            dst_file += "/" + basename
-    else:
-        op = "put"
-        host, port, dst_file = parse_remote(sys.argv[2])
-        src_file = sys.argv[1]
-        if dst_file[-1] == "/":
-            basename = src_file.rsplit("/", 1)[-1]
-            dst_file += basename
+    # if ":" in sys.argv[1]:
+    #     op = "get"
+    #     host, port, src_file = parse_remote(sys.argv[1])
+    #     dst_file = sys.argv[2]
+    #     if os.path.isdir(dst_file):
+    #         basename = src_file.rsplit("/", 1)[-1]
+    #         dst_file += "/" + basename
+    # else:
+    #     op = "put"
+    #     host, port, dst_file = parse_remote(sys.argv[2])
+    #     src_file = sys.argv[1]
+    #     if dst_file[-1] == "/":
+    #         basename = src_file.rsplit("/", 1)[-1]
+    #         dst_file += basename
 
-    if True:
-        print("op:%s, host:%s, port:%d, passwd:%s." % (op, host, port, passwd))
-        print(src_file, "->", dst_file)
+    
+    print("op:%s, host:%s, port:%d, passwd:%s." % (op, host, port, passwd))
+    print(src_file, "->", dst_file)
 
     s = socket.socket()
 
@@ -275,5 +275,10 @@ def main():
     s.close()
 
 
-if __name__ == "__main__":
-    main()
+_op = "put"
+_host = "10.0.0.100"
+_port = 8266
+_passwd = "robinho"
+_src_file = "esp32/micropy/main.py"
+_dst_file = "main.py"
+robinho_send(_op, _host, _port, _passwd, _src_file, _dst_file)

@@ -11,6 +11,7 @@ uart = machine.UART(1, 9600, rx=12, tx=13)
 uart.init(9600, bits=8, parity=None, stop=1)
 uart.read()
 
+robinho_func.blink(0.2, flash)
 client_socket = socket.socket()  # instantiate
 client_socket.connect(("10.0.0.102", 93))  # connect to the server
 client_socket.settimeout(0.1)
