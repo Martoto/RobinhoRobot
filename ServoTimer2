@@ -4,12 +4,12 @@
 #include "Adafruit_TCS34725.h"
 #include <Adafruit_NeoPixel.h>
 
-#define BASE_PWM 60
+#define BASE_PWM 70
 #define TICKS_FORWARD 42
 #define TICKS_ROTATE_90 13
 #define LOCK_TIME 500
-#define PWM_MAX_ADJ 30
-#define PWM_ADJ_KP 10
+#define PWM_MAX_ADJ 20
+#define PWM_ADJ_KP 5
 #define BASETIME 200
 #define PWM_BASE_STUCK 8
 #define STARTUP_TICKS 2
@@ -61,8 +61,8 @@ void setLock() {
 }
 
 void setVelocity(int motor1, int motor2) {
-  motor1 = constrain(motor1, -255, 255);
-  motor2 = constrain(motor2, -255, 255);
+  motor1 = constrain(motor1, -250, 250);
+  motor2 = constrain(motor2, -250, 250);
   if (motor1 == 0) {
     analogWrite(m1p1, 0);
     analogWrite(m1p2, 0);
@@ -144,7 +144,7 @@ void mstate_start(int movetype) {
   mt_setVelocity(PWM_STARTUP, PWM_STARTUP);
 }
 
-void cmdTreatment(byte cmd) {
+void cmdTreatment(int cmd) {
   if (cmd == 0x1C) {
     mstate_start(0);
   } else if (cmd == 0x1F) {
@@ -235,12 +235,20 @@ void cmdTreatment(byte cmd) {
 
 
   void loop() {
-    setVelocity(0, 0);
-    closeServo();
+  /*  setVelocity(80, 80);
+    delay(1000);
+    setVelocity(0,0);
+    delay(20000);*/
+          closeServo();
+        pixels.setPixelColor(0, 100,0,0);
+        pixels.show();  // Send the updated pixel colors to the hardware
 
     while (1) {
       if (Serial.available()) {
-        char cmd = Serial.read();
+        pixels.setPixelColor(0, 0,100,0);
+        pixels.show();  // Send the updated pixel colors to the hardware
+
+        int cmd = Serial.read();
         cmdTreatment(cmd);
         //Serial.write(resp);
       }
@@ -252,8 +260,6 @@ void cmdTreatment(byte cmd) {
         case 1:
           if ((m1e_count >= STARTUP_TICKS) && (m2e_count >= STARTUP_TICKS)) {
             timeold = millis();
-            m1e_count = 0;
-            m2e_count = 0;
 
             mt_setVelocity(BASE_PWM, BASE_PWM);
 
@@ -300,6 +306,7 @@ void cmdTreatment(byte cmd) {
             } else {
               mt_setVelocity(base + BASE_PWM, base + BASE_PWM + dj);
             }
+            
 
             m1e_count = 0;
             m2e_count = 0;
@@ -312,9 +319,9 @@ void cmdTreatment(byte cmd) {
           if (millis() - mstate_timer > LOCK_TIME) {
             mstate = 0;
             mstate_timer = millis();
-            mt_setVelocity(0, 0);
+            setVelocity(0, 0);
             Serial.write('1');
-            //Serial.println("3-0");
+            Serial.println("3-0");
           }
           break;
       }
