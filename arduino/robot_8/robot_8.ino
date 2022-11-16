@@ -4,19 +4,22 @@
 #include "Adafruit_TCS34725.h"
 #include <Adafruit_NeoPixel.h>
 
-#define BASE_PWM 70
+#define BASE_PWM 60
 #define TICKS_FORWARD 42
-#define TICKS_ROTATE_90 13
+#define TICKS_ROTATE_90 8
 #define LOCK_TIME 500
-#define PWM_MAX_ADJ 20
-#define PWM_ADJ_KP 5
+#define PWM_SURGE_MAX_ADJ 100
+#define PWM_SURGE_ADJ_KP 35
+#define PWM_SWAY_MAX_ADJ 30
+#define PWM_SWAY_ADJ_KP 15
 #define BASETIME 200
-#define PWM_BASE_STUCK 8
+#define PWM_BASE_STUCK 10
 #define STARTUP_TICKS 2
 #define PWM_STARTUP_BOOST 150
-#define PWM_STARTUP 100
+#define PWM_STARTUP 90
 #define STARTUP_BOOST_TIME 150
 #define ENCODER_PPR 20
+
 
 Adafruit_TCS34725 tcs = Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_614MS, TCS34725_GAIN_1X);
 Adafruit_NeoPixel pixels(8, 13, NEO_GRB + NEO_KHZ800);
@@ -24,14 +27,12 @@ ServoTimer2 myservo;
 
 volatile byte m1e_count = 0;
 volatile byte m2e_count = 0;
-volatile unsigned long m1e_last = 0;
-volatile unsigned long m2e_last = 0;
+volatile uint32_t m1e_last = 0;
+volatile uint32_t m2e_last = 0;
 
-
-int unstuck_boost = 0;
-unsigned int m1e_total_count = 0;
-unsigned int m2e_total_count = 0;
-unsigned long timeold = 0;
+int16_t unstuck_boost = 0;
+uint16_t m1e_total_count = 0;
+uint16_t m2e_total_count = 0;
 
 enum class mstate_e {
   STOPPED,
@@ -41,7 +42,7 @@ enum class mstate_e {
 };
 
 mstate_e mstate = mstate_e::STOPPED;
-unsigned long mstate_timer = 0;
+uint32_t mstate_timer = 0;
 
 enum class movement_type_e {
   FORWARD,
@@ -51,8 +52,9 @@ enum class movement_type_e {
 };
 
 movement_type_e movement_type = movement_type_e::FORWARD;
-float pose[3] = { 0 };
-unsigned long pose_time = 0;
+// x y ang
+uint8_t position[3] = { 0 };
+uint32_t position_time = 0;
 
 void m1e_i() {
   m1e_count++;
@@ -64,11 +66,11 @@ void m2e_i() {
   m2e_last = millis();
 }
 
-void setLock() {
-  analogWrite(m1p1, 255);
-  analogWrite(m1p2, 255);
-  analogWrite(m2p1, 255);
-  analogWrite(m2p2, 255);
+void setBrake() {
+  analogWrite(m1p1, 250);
+  analogWrite(m1p2, 250);
+  analogWrite(m2p1, 250);
+  analogWrite(m2p2, 250);
 }
 
 void setVelocity(int motor1, int motor2) {
@@ -154,7 +156,27 @@ void mstate_start(movement_type_e movetype) {
 
 void cmdTreatment(int cmd) {
   if (cmd == 0x1C) {
-    mstate_start(movement_type_e::FORWARD);
+     mstate_start(movement_type_e::FORWARD);
+
+/*
+    static int iii = 0;
+    if (iii % 4 == 0) {
+      mstate_start(movement_type_e::FORWARD);
+    } else if (iii % 4 == 1) {
+      mstate_start(movement_type_e::LEFT);
+    } else if (iii % 4 == 2) {
+      if (iii % 8 == 0) {
+
+        mstate_start(movement_type_e::BACKWARDS);
+      } else {
+        mstate_start(movement_type_e::FORWARD);
+      }
+    } else if (iii % 4 == 3) {
+      mstate_start(movement_type_e::RIGHT);
+    }
+    iii++;
+*/
+
   } else if (cmd == 0x1F) {
     mstate_start(movement_type_e::LEFT);
   } else if (cmd == 0x1E) {
@@ -199,6 +221,12 @@ void cmdTreatment(int cmd) {
       Serial.write('4');
     } else if (cmd == 0b00000000) {
       for (int j = 0; j < 3; j++) {
+        while (!Serial.available()) {}
+        position[j] = Serial.read();
+      }
+      position_time = millis();
+      /*
+      for (int j = 0; j < 3; j++) {
         char teste[11] = { 0 };
 
         Serial.write('1');
@@ -210,6 +238,7 @@ void cmdTreatment(int cmd) {
         pose[j] = atof(teste);
       }
       Serial.write('1');
+    */
     }
   }
   return;
@@ -253,7 +282,7 @@ void loop() {
       pixels.setPixelColor((num_messages + 1) % 8, 0, 100, 0);
       pixels.setPixelColor(num_messages % 8, 100, 0, 0);
       num_messages++;
-      pixels.show();  
+      pixels.show();
 
       int cmd = Serial.read();
       cmdTreatment(cmd);
@@ -267,8 +296,6 @@ void loop() {
       case mstate_e::STARTUP:
         // Check if both motors started rotating and we can move to normal moving operation
         if ((m1e_count >= STARTUP_TICKS) && (m2e_count >= STARTUP_TICKS)) {
-          timeold = millis();
-
           mt_setVelocity(BASE_PWM, BASE_PWM);
 
           //Serial.println("1-2");
@@ -286,16 +313,14 @@ void loop() {
       case mstate_e::MOVING:
         // Check if we rotated enough
         // For forward/backwards
-        if ((((m1e_total_count + m1e_count + m2e_total_count + m2e_count) >= TICKS_FORWARD) && ((movement_type == movement_type_e::FORWARD) || movement_type == movement_type_e::BACKWARDS))
-        // For rotation
-            || ((max(m1e_total_count + m1e_count, m2e_total_count + m2e_count) >= 7) && ((movement_type == movement_type_e::LEFT) || (movement_type == movement_type_e::RIGHT))))
-
-        {
+        if ((((m1e_total_count + m1e_count + m2e_total_count + m2e_count) >= TICKS_FORWARD) && (movement_type == movement_type_e::FORWARD || movement_type == movement_type_e::BACKWARDS))
+            // For rotation
+            || ((max(m1e_total_count + m1e_count, m2e_total_count + m2e_count) >= TICKS_ROTATE_90) && ((movement_type == movement_type_e::LEFT) || (movement_type == movement_type_e::RIGHT)))) {
           mstate = mstate_e::LOCKED;
           mstate_timer = millis();
-          setLock();
+          setBrake();
 
-        // Run normal controller  
+          // Run normal controller
         } else {
           disable_encoder_interrupts();
 
@@ -312,17 +337,18 @@ void loop() {
           m2e_count = 0;
 
           // Calculates the difference between pulses in each motor and muls by PWM_ADJ_KP
-          int dj = (m2e_total_count - m1e_total_count) * PWM_ADJ_KP;
+          int dj = (m2e_total_count - m1e_total_count) * ((movement_type == movement_type_e::FORWARD || movement_type == movement_type_e::BACKWARDS) ? PWM_SURGE_ADJ_KP : PWM_SWAY_ADJ_KP);
           // constrains the maximum left/right PWM adjustement
-          dj = constrain(dj, -PWM_MAX_ADJ, PWM_MAX_ADJ);
+          int max_adj = ((movement_type == movement_type_e::FORWARD || movement_type == movement_type_e::BACKWARDS) ? PWM_SURGE_MAX_ADJ : PWM_SWAY_MAX_ADJ);
+          dj = constrain(dj, -max_adj, max_adj);
 
           int m1 = BASE_PWM + unstuck_boost;
           int m2 = BASE_PWM + unstuck_boost;
 
           if (dj > 0) {
-            m1+=dj;
+            m1 += dj;
           } else {
-            m2+=dj;
+            m2 += -dj;
           }
 
           mt_setVelocity(m1, m2);
