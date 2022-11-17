@@ -2,6 +2,7 @@
 from __future__ import print_function
 import sys
 import os
+import time
 import struct
 try:
     import usocket as socket
@@ -272,11 +273,21 @@ def robinho_send(op, host, port, passwd, src_file, dst_file):
     elif op == "put":
         put_file(ws, src_file, dst_file)
 
+    print('Resetting...')
+    # ws.write only sends binary data, so we need to instead send the
+    # appropriate header for "text" data to send control characters
+    text_hdr = struct.pack(">BB", 0x81, 1)
+    s.send(text_hdr)
+    s.send(b'\x03')  #ctrl-c to interrupt whatever might be happening
+    print(s.recv(1000))
+    s.send(text_hdr)
+    s.send(b'\x04')  #ctrl-d
+
     s.close()
 
 
 _op = "put"
-_host = "10.0.0.100"
+_host = "192.168.101.3"
 _port = 8266
 _passwd = "robinho"
 _src_file = "esp32/micropy/main.py"
