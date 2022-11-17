@@ -1,21 +1,23 @@
 import socket
+from _thread import *
 
-addr = socket.getaddrinfo('10.0.0.102', 93)[0][-1]
+x, y, ang = (3, 1, 4)
+
+def client_handler(connection):
+	while True:
+		data = str((x, y, ang)).encode()
+		print("sending data: ", data)
+		connection.sendall(data)
+
 ESP_server = socket.socket()
-ESP_server.bind(addr)
-ESP_server.listen(1)
+ESP_server.bind(("0.0.0.0", 5070))
+ESP_server.listen()
+print("Server started")
 
-print('listening on', addr)
-PC_link, addr = ESP_server.accept()
-PC_link.setblocking(0)
-print('client connected from', addr)
-
-data = " "
-while data != "a":
-	data = input(" -> ")
-	data = "x:1.23490232 y:2.89482904 z:-0.4292067"
-	PC_link.send(data.encode())
-	#data = client_socket.recv(1024).decode()  # receive response
-	#print('msg:' + data)  # show in terminal
+while 1:
+	Client, address = ESP_server.accept()
+	Client.setblocking(0)
+	start_new_thread(client_handler, (Client, ))
+	print('client connected from', address)
 
 ESP_server.close()  # close the connection
