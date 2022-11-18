@@ -38,7 +38,8 @@ enum class mstate_e {
   STOPPED,
   STARTUP,
   MOVING,
-  LOCKED
+  LOCKED,
+  WAITING_POSE
 };
 
 mstate_e mstate = mstate_e::STOPPED;
@@ -53,8 +54,8 @@ enum class movement_type_e {
 
 movement_type_e movement_type = movement_type_e::FORWARD;
 // x y ang
-uint8_t position[3] = { 0 };
-uint32_t position_time = 0;
+uint8_t pose[3] = { 0 };
+uint32_t pose_time = 0;
 
 void m1e_i() {
   m1e_count++;
@@ -222,23 +223,11 @@ void cmdTreatment(int cmd) {
     } else if (cmd == 0b00000000) {
       for (int j = 0; j < 3; j++) {
         while (!Serial.available()) {}
-        position[j] = Serial.read();
+        pose[j] = Serial.read();
       }
-      position_time = millis();
-      /*
-      for (int j = 0; j < 3; j++) {
-        char teste[11] = { 0 };
-
-        Serial.write('1');
-        while (Serial.available() != 10) {}
-        for (int i = 0; i < 10; i++) {
-          while (!Serial.available()) {}
-          teste[i] = Serial.read();
-        }
-        pose[j] = atof(teste);
-      }
-      Serial.write('1');
-    */
+      pose_time = millis();
+      pixels.setPixelColor(6, pose[0], pose[1], pose[2]);
+      pixels.show();
     }
   }
   return;
@@ -272,21 +261,20 @@ void setup() {
 
 
 void loop() {
-  closeServo();
-  pixels.setPixelColor(0, 100, 0, 0);
+  //closeServo();
+  int iii = 0;
+  pixels.setPixelColor(0, 150, 0, 0);
   pixels.show();
-  int num_messages = 0;
 
   while (1) {
     if (Serial.available()) {
-      pixels.setPixelColor((num_messages + 1) % 8, 0, 100, 0);
-      pixels.setPixelColor(num_messages % 8, 100, 0, 0);
-      num_messages++;
-      pixels.show();
+      pixels.setPixelColor(iii % 4, 150, 0, 0, 0);
+      pixels.setPixelColor((iii + 1) % 4, 0, 150, 0, 0);
 
+      pixels.show();
+      iii++;
       int cmd = Serial.read();
       cmdTreatment(cmd);
-      //Serial.write(resp);
     }
 
     switch (mstate) {
@@ -357,9 +345,20 @@ void loop() {
         }
         break;
 
+
       case mstate_e::LOCKED:
         if (millis() - mstate_timer > LOCK_TIME) {
+          mstate = mstate_e::WAITING_POSE;
+          setVelocity(0, 0);
+        }
+        break;
+
+      case mstate_e::WAITING_POSE:
+        //if (millis() - pose_time < 500) {
+        {
           mstate_reset();
+          pixels.setPixelColor(5, pose[0], pose[1], pose[2]);
+          pixels.show();
           Serial.write('1');
         }
         break;

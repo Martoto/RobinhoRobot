@@ -11,8 +11,7 @@ void setup() {
 }
 
 void loop() {
-  char teste[10];
-  float pose[3];
+  char teste;
   if(Serial.available())
   {
     char tes = Serial.read();
@@ -25,7 +24,21 @@ void loop() {
     Serial.println(tes, BIN);
     if(tes == 0b00000000)
     {
-      for(int j = 0; j<3; j++)
+      myserial.write('1');
+      while(!myserial.available()){}
+      teste = myserial.read();
+      Serial.println(teste, DEC);
+      myserial.write('1');
+      while(!myserial.available()){}
+      teste = myserial.read();
+      Serial.println(teste, DEC);
+      myserial.write('1');
+      while(!myserial.available()){}
+      teste = myserial.read();
+      Serial.println(teste, DEC);
+      myserial.write('1');
+      
+      /*for(int j = 0; j<3; j++)
       {
         myserial.write('1');
         while(myserial.available() != 10){}
@@ -39,7 +52,7 @@ void loop() {
       myserial.write('1');
       Serial.println(pose[0]);
       Serial.println(pose[1]);
-      Serial.println(pose[2]);
+      Serial.println(pose[2]);*/
     }
   }
 }

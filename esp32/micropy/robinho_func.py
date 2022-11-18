@@ -25,11 +25,11 @@ def read_floor_color(uart, PC_server):
         return "#000000"
          
 def receive_pose(uart, PC_server):
+    print("receive_pose")
     try:
         data = PC_server.recv(1024).decode()  # receive response
-        x = data[2:12]
-        y = data[15:25]
-        angle = data[28:38]
+        print("data:", data)
+        x, y, angle = eval(data)
         print("x:", x)
         print("y:", y)
         print("z:", angle)
@@ -39,16 +39,19 @@ def receive_pose(uart, PC_server):
             img = get_image(camera)
         uart.read()
         
+        print("x")
         uart.write(x)
         while uart.any()==0:
             img = get_image(camera)
         uart.read()
         
+        print("y")
         uart.write(y)
         while uart.any()==0:
             img = get_image(camera)
         uart.read()
         
+        print("a")
         uart.write(angle)
         while uart.any()==0:
             img = get_image(camera)
@@ -59,7 +62,7 @@ def receive_pose(uart, PC_server):
 def get_image(camera):
     camera_status = camera.init(1)
     teste = camera.capture()
-    print(len(teste))
+    #print(len(teste))
     camera.deinit()
     return teste
 
@@ -78,6 +81,9 @@ def arduino_cmd(cmd, uart, PC_server):
         img = get_image(camera)
         if(uart.any()!=0):
             break
-        receive_pose(uart, PC_server)
+        #eceive_pose(uart, PC_server)
     resp = uart.read()
     return resp
+
+
+
