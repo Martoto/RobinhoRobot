@@ -31,6 +31,7 @@ volatile uint32_t m1e_last = 0;
 volatile uint32_t m2e_last = 0;
 
 int16_t unstuck_boost = 0;
+uint16_t m12e_target = 0;
 uint16_t m1e_total_count = 0;
 uint16_t m2e_total_count = 0;
 
@@ -141,15 +142,18 @@ void mstate_reset() {
   setVelocity(0, 0);
 }
 
-void mstate_start(movement_type_e movetype) {
+void mstate_start(movement_type_e movetype, int16_t target) {
   mstate = mstate_e::STARTUP;
   mstate_timer = millis();
+  m12e_target = target;
   m1e_total_count = 0;
   m2e_total_count = 0;
   m1e_count = 0;
   m2e_count = 0;
 
   unstuck_boost = 0;
+  
+  pixels.setPixelColor(5, 150, 0, 0);
 
   movement_type = movetype;
   mt_setVelocity(PWM_STARTUP, PWM_STARTUP);
@@ -157,34 +161,24 @@ void mstate_start(movement_type_e movetype) {
 
 void cmdTreatment(int cmd) {
   if (cmd == 0x1C) {
-     mstate_start(movement_type_e::FORWARD);
-
-/*
-    static int iii = 0;
-    if (iii % 4 == 0) {
-      mstate_start(movement_type_e::FORWARD);
-    } else if (iii % 4 == 1) {
-      mstate_start(movement_type_e::LEFT);
-    } else if (iii % 4 == 2) {
-      if (iii % 8 == 0) {
-
-        mstate_start(movement_type_e::BACKWARDS);
-      } else {
-        mstate_start(movement_type_e::FORWARD);
-      }
-    } else if (iii % 4 == 3) {
-      mstate_start(movement_type_e::RIGHT);
-    }
-    iii++;
-*/
-
+     mstate_start(movement_type_e::FORWARD, TICKS_FORWARD);
   } else if (cmd == 0x1F) {
-    mstate_start(movement_type_e::LEFT);
+    mstate_start(movement_type_e::LEFT, TICKS_ROTATE_90);
   } else if (cmd == 0x1E) {
-    mstate_start(movement_type_e::RIGHT);
+    mstate_start(movement_type_e::RIGHT, TICKS_ROTATE_90);
   } else if (cmd == 0x1D) {
-    mstate_start(movement_type_e::BACKWARDS);
-  } else {
+    mstate_start(movement_type_e::BACKWARDS, TICKS_FORWARD);
+  } else if (cmd == 0b00000000) {
+      Serial.write('1');        
+      for (int j = 0; j < 3; j++) {
+        while (!Serial.available()) {}
+        pose[j] = Serial.read();
+        Serial.write('1');
+      }
+      pose_time = millis();
+      pixels.setPixelColor(6, pose[0], pose[1], pose[2]);
+      pixels.show();
+    } else {
     mstate_reset();
 
     if (cmd == 0x1B) {
@@ -193,11 +187,12 @@ void cmdTreatment(int cmd) {
     } else if (cmd == 0x1A) {
       closeServo();
       Serial.write('1');
-    } else if ((cmd & 0x1F) == 0x1C) {
-      for (int i = 0; i < 8; i++) {
+    } else if ((cmd & 0x1F) == 0x18) {
+      int i =7;
+      //for (int i = 7; i < 8; i++) {
         pixels.setPixelColor(i, pixels.Color((cmd & 0x80) ? 255 : 0, (cmd & 0x40) ? 255 : 0, (cmd & 0x20) ? 255 : 0));
         pixels.show();  // Send the updated pixel colors to the hardware
-      }
+      //}
       Serial.write('1');
     } else if (cmd == 0b11100000) {
 
@@ -220,14 +215,6 @@ void cmdTreatment(int cmd) {
     } else if (cmd == 0b11100001) {
       // TODO read battery
       Serial.write('4');
-    } else if (cmd == 0b00000000) {
-      for (int j = 0; j < 3; j++) {
-        while (!Serial.available()) {}
-        pose[j] = Serial.read();
-      }
-      pose_time = millis();
-      pixels.setPixelColor(6, pose[0], pose[1], pose[2]);
-      pixels.show();
     }
   }
   return;
@@ -301,9 +288,9 @@ void loop() {
       case mstate_e::MOVING:
         // Check if we rotated enough
         // For forward/backwards
-        if ((((m1e_total_count + m1e_count + m2e_total_count + m2e_count) >= TICKS_FORWARD) && (movement_type == movement_type_e::FORWARD || movement_type == movement_type_e::BACKWARDS))
+        if ((((m1e_total_count + m1e_count + m2e_total_count + m2e_count) >= m12e_target) && (movement_type == movement_type_e::FORWARD || movement_type == movement_type_e::BACKWARDS))
             // For rotation
-            || ((max(m1e_total_count + m1e_count, m2e_total_count + m2e_count) >= TICKS_ROTATE_90) && ((movement_type == movement_type_e::LEFT) || (movement_type == movement_type_e::RIGHT)))) {
+            || ((max(m1e_total_count + m1e_count, m2e_total_count + m2e_count) >= m12e_target) && ((movement_type == movement_type_e::LEFT) || (movement_type == movement_type_e::RIGHT)))) {
           mstate = mstate_e::LOCKED;
           mstate_timer = millis();
           setBrake();
@@ -349,17 +336,23 @@ void loop() {
       case mstate_e::LOCKED:
         if (millis() - mstate_timer > LOCK_TIME) {
           mstate = mstate_e::WAITING_POSE;
+          mstate_timer = millis();
           setVelocity(0, 0);
         }
         break;
 
       case mstate_e::WAITING_POSE:
-        //if (millis() - pose_time < 500) {
-        {
-          mstate_reset();
-          pixels.setPixelColor(5, pose[0], pose[1], pose[2]);
-          pixels.show();
-          Serial.write('1');
+        if (pose_time > mstate_timer) {
+          if(1) { //TODO: posicao correta {
+            mstate_reset();
+            pixels.setPixelColor(5, pose[0], pose[1], pose[2]);
+            pixels.show();
+            Serial.write('1');  
+          } else { // Novo movimento
+            mstate_start(movement_type_e::FORWARD, 10);
+            pixels.setPixelColor(5, pose[0], pose[1], pose[2]);
+            pixels.show();                        
+          }
         }
         break;
     }
