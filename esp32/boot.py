@@ -6,18 +6,15 @@ import network
 import time
 webrepl.start()
 
-sta_if = network.WLAN(network.STA_IF)
-sta_if.active(True)
+sta_if = network.WLAN(network.STA_IF); sta_if.active(True)
+sta_if.connect("INTELBRAS","LESC12345")
+#sta_if.connect("lukn23","12345678")
+#sta_if.connect("CLARO5GDCC6B8","azUmycWqc7")
+#sta_if.connect("BIOINFO-IC","b10cp3g1")
+time.sleep(1)
 
-if not sta_if.isconnected():
-    print("connecting")
-    #sta_if.connect("INTELBRAS","LESC12345")
-    sta_if.connect("BIOINFO-IC","b10cp3g1")
-    
+#uart = machine.UART(1, 9600, rx=12, tx=13)
+#uart.init(9600, bits=8, parity=None, stop=1)
 
-while not sta_if.isconnected():
-    print("connecting wwauit")
-    time.sleep(0.5)
 
-#time.sleep(5)
-#print("connected", sta_if.ifconfig())
+#test test

@@ -25,6 +25,7 @@ def read_floor_color(uart, PC_server):
         return "#000000"
          
 def receive_pose(uart, PC_server):
+    print("receive_pose")
     try:
         data = PC_server.recv(1024).decode()  # receive response
         print("data:", data)
@@ -36,34 +37,37 @@ def receive_pose(uart, PC_server):
         uart.write(chr(0b00000000))
         while uart.any()==0:
             img = get_image(camera)
-        uart.read()
+        uart.read(1)
         
         print("x")
-        uart.write(x)
+        uart.write(x.to_bytes(1, "little"))
         while uart.any()==0:
             img = get_image(camera)
-        uart.read()
+        uart.read(1)
         
         print("y")
-        uart.write(y)
+        uart.write(y.to_bytes(1, "little"))
         while uart.any()==0:
             img = get_image(camera)
-        uart.read()
+        uart.read(1)
         
         print("a")
-        uart.write(angle)
+        uart.write(angle.to_bytes(1, "little"))
         while uart.any()==0:
             img = get_image(camera)
-        uart.read()
+        uart.read(1)
     except:
          print('no data')
     
 def get_image(camera):
+    return 0
     camera_status = camera.init(1)
-    teste = camera.capture()
-    #print(len(teste))
-    camera.deinit()
-    return teste
+    img = 0
+    if camera_status == True:
+        img = camera.capture()
+        #print(len(teste))
+        camera.deinit()
+    return img
 
 def blink(time_delay, flash):
     for i in range(2):
@@ -81,6 +85,8 @@ def arduino_cmd(cmd, uart, PC_server):
         if(uart.any()!=0):
             break
         receive_pose(uart, PC_server)
-    resp = uart.read()
+    resp = uart.read(1)
     return resp
+
+
 
