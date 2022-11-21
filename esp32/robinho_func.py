@@ -79,6 +79,7 @@ def blink(time_delay, flash):
 
 def arduino_cmd(cmd, uart, PC_server):
     print("send", bin(cmd))
+    receive_pose(uart, PC_server)
     uart.write(chr(cmd))
     while uart.any()==0:
         img = get_image(camera)
