@@ -1,3 +1,5 @@
+#include <math.h>
+
 #include "ServoTimer2.h"
 #include <SoftwareSerial.h>
 #include "pins.h"
@@ -5,8 +7,8 @@
 #include <Adafruit_NeoPixel.h>
 
 #define BASE_PWM 60
-#define TICKS_FORWARD 42
 #define TICKS_ROTATE_90 8
+#define PULSES_PER_DISTANCE (42.0 / 25.0)
 #define BRAKE_TIME 500
 #define PWM_SURGE_MAX_ADJ 100
 #define PWM_SURGE_ADJ_KP 35
@@ -20,42 +22,45 @@
 #define STARTUP_BOOST_TIME 150
 #define ENCODER_PPR 20
 #define ANGLE_MOVE_TOLERANCE 10
+#define SURGE_MOVE_TOLERANCE 5
+#define PWM_MAX 250
+#define GRID_SIZE 25
 
 enum angle_e : int16_t {
   EAST = 0,
   SOUTH = 64,
   WEST = 128,
-  NORTH = 191,
+  NORTH = 192,
   INVALID = 1000
 };
 
 angle_e angle_e_rotate_left(angle_e in) {
-  switch(in) {
+  switch (in) {
     case EAST:
-    return NORTH;
+      return NORTH;
     case SOUTH:
-    return EAST;
+      return EAST;
     case WEST:
-    return SOUTH;
+      return SOUTH;
     case NORTH:
-    return WEST;
+      return WEST;
     default:
-    return INVALID;
+      return INVALID;
   }
 }
 
 angle_e angle_e_rotate_right(angle_e in) {
-  switch(in) {
+  switch (in) {
     case EAST:
-    return SOUTH;
+      return SOUTH;
     case SOUTH:
-    return WEST;
+      return WEST;
     case WEST:
-    return NORTH;
+      return NORTH;
     case NORTH:
-    return EAST;
+      return EAST;
     default:
-    return INVALID;
+      return INVALID;
   }
 }
 
@@ -87,8 +92,12 @@ struct Angle {
   }
 
   int16_t diff(Angle b) {
-    int16_t k = (this->val - b.val) % 360;
-    return min(360 - k, k);
+    int16_t k = (this->val - b.val) % 256;
+    return min(256 - k, k);
+  }
+
+  void opposite() {
+    val = (val + 128) % 256;
   }
 
   angle_e nearest_direction() {
@@ -137,6 +146,8 @@ struct RealPosition {
   }
 
   GridPosition to_grid();
+  double distance(RealPosition b);
+  Angle angle_to(RealPosition b);
 };
 
 struct GridPosition {
@@ -148,13 +159,52 @@ struct GridPosition {
     this->y = y;
   }
 
-  RealPosition to_real() {
-    return RealPosition{ x: this->x * 8, y: this->y * 8 };
+  RealPosition to_real_center() {
+    return RealPosition{ x: this->x * GRID_SIZE + (GRID_SIZE / 2), y: this->y * GRID_SIZE + (GRID_SIZE / 2) };
+  }
+
+  GridPosition move(angle_e direction) {
+    switch (direction) {
+      case NORTH:
+        return GridPosition{ x: x, y: y - 1 };
+      case WEST:
+        return GridPosition{ x: x - 1, y: y };
+      case EAST:
+        return GridPosition{ x: x + 1, y: y };
+      case SOUTH:
+        return GridPosition{ x: x, y: y + 1 };
+      default:
+        return GridPosition{ -1, -1 };
+    }
+  }
+
+  bool isMoveValid(angle_e direction) {
+    GridPosition newpos = this->move(direction);
+    if (newpos.x < 0 || newpos.y < 0) {
+      return false;
+    }
+    if (newpos.x > 9 || newpos.y > 8) {
+      return false;
+    }
+    if (newpos.x < 4 && newpos.y < 4) {
+      return false;
+    }
+    return true;  // TODO walls
   }
 };
 
 GridPosition RealPosition::to_grid() {
   return GridPosition{ x: this->x / 8, y: this->y / 8 };
+}
+
+double RealPosition::distance(RealPosition b) {
+  return sqrt(sq(this->x - b.x) + sq(this->y - b.y));
+}
+Angle RealPosition::angle_to(RealPosition b) {
+  float radians = atan2(this->y - b.y, this->x - b.x);
+  Angle ret = Angle{ val: static_cast<int16_t>(256.0 * radians / (2 * 3.14159)) % 256 };
+  ret.opposite();  // https://en.cppreference.com/w/cpp/numeric/math/atan2
+  return ret;
 }
 
 Adafruit_TCS34725 tcs = Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_614MS, TCS34725_GAIN_1X);
@@ -191,6 +241,17 @@ enum class movement_type_e {
 };
 
 movement_type_e movement_type = movement_type_e::FORWARD;
+
+enum class overmstate_e {
+  STOPPED,
+  PURE_ROTATION,
+  FORWARD,
+  BACKWARDS
+};
+
+overmstate_e overmstate = overmstate_e::STOPPED;
+RealPosition overmstate_target_realpos = RealPosition{ 0, 0 };
+
 // x y ang
 RealPosition pose_real = { 0, 0 };
 Angle pose_ang = { 0 };
@@ -207,15 +268,15 @@ void m2e_i() {
 }
 
 void setBrake() {
-  analogWrite(m1p1, 250);
-  analogWrite(m1p2, 250);
-  analogWrite(m2p1, 250);
-  analogWrite(m2p2, 250);
+  analogWrite(m1p1, PWM_MAX);
+  analogWrite(m1p2, PWM_MAX);
+  analogWrite(m2p1, PWM_MAX);
+  analogWrite(m2p2, PWM_MAX);
 }
 
 void setVelocity(int motor1, int motor2) {
-  motor1 = constrain(motor1, -250, 250);
-  motor2 = constrain(motor2, -250, 250);
+  motor1 = constrain(motor1, -PWM_MAX, PWM_MAX);
+  motor2 = constrain(motor2, -PWM_MAX, PWM_MAX);
   if (motor1 == 0) {
     analogWrite(m1p1, 0);
     analogWrite(m1p2, 0);
@@ -292,7 +353,6 @@ void mstate_start(movement_type_e movetype, int16_t target) {
 
   unstuck_boost = 0;
 
-  pixels.setPixelColor(5, 150, 0, 0);
 
   movement_type = movetype;
   mt_setVelocity(PWM_STARTUP, PWM_STARTUP);
@@ -300,25 +360,88 @@ void mstate_start(movement_type_e movetype, int16_t target) {
 
 void mstate_rotation_to(Angle target);
 void mstate_rotation_to(Angle target) {
-    movement_final_angle = target;
-    int16_t diff = pose_ang.diff(target);
-    int16_t encoder_pulses = (TICKS_ROTATE_90 * abs(diff))/64;
-    mstate_start((diff < 0) ? movement_type_e::RIGHT : movement_type_e::LEFT, encoder_pulses);
+  movement_final_angle = target;
+  int16_t diff = pose_ang.diff(target);
+  int16_t encoder_pulses = (TICKS_ROTATE_90 * abs(diff)) / (256 / 4);
+  mstate_start((diff < 0) ? movement_type_e::RIGHT : movement_type_e::LEFT, encoder_pulses);
+}
+
+void overmstate_reset() {
+  overmstate = overmstate_e::STOPPED;
+  overmstate_target_realpos = RealPosition{ 0, 0 };
+  mstate_reset();
+}
+
+void overmstate_surge_run() {
+  // Position good?
+  if (pose_real.distance(overmstate_target_realpos) < SURGE_MOVE_TOLERANCE) {
+    // Finish angle good?
+    if (abs(pose_ang.diff(movement_final_angle)) < ANGLE_MOVE_TOLERANCE) {
+      pixels.setPixelColor(4, 0, 0, 100);
+      pixels.show();
+      overmstate_reset();
+      Serial.write('1');
+    } else {
+      pixels.setPixelColor(4, 0, 100, 0);
+      pixels.show();
+      mstate_rotation_to(movement_final_angle);
+    }
+  } else {
+    Angle target_move_angle = pose_real.angle_to(overmstate_target_realpos);
+    if (overmstate == overmstate_e::BACKWARDS) {
+      target_move_angle.opposite();
+    }
+    // Move angle good?
+    if (abs(pose_ang.diff(target_move_angle)) < ANGLE_MOVE_TOLERANCE) {
+      pixels.setPixelColor(4, 100, 100, 100);
+      pixels.show();//193,68
+      int16_t pulses = PULSES_PER_DISTANCE * pose_real.distance(overmstate_target_realpos);
+      mstate_start(overmstate == overmstate_e::FORWARD ? movement_type_e::FORWARD : movement_type_e::BACKWARDS, pulses);
+    } else {
+      pixels.setPixelColor(4, 100, 0, 0);
+      pixels.show();
+      mstate_rotation_to(target_move_angle);
+    }
+  }
+}
+
+void overmstate_start_surge(overmstate_e overmstate_in);
+void overmstate_start_surge(overmstate_e overmstate_in) {
+  movement_final_angle = pose_ang.nearest_direction();
+  if (!pose_real.to_grid().isMoveValid(pose_ang.nearest_direction())) {
+    pixels.setPixelColor(6, 0, 100, 100);
+    pixels.show();
+    overmstate_reset();
+    Serial.write('1');
+    return;
+  }
+
+  pixels.setPixelColor(6, 0, 0, 100);
+  pixels.show();
+  overmstate = overmstate_in;
+
+  overmstate_target_realpos = pose_real.to_grid().move(pose_ang.nearest_direction()).to_real_center();
+  overmstate_surge_run();
+}
+
+void overmstate_start_yaw(bool right) {
+  pixels.setPixelColor(6, 0, 100, 0);
+  pixels.show();
+  overmstate = overmstate_e::PURE_ROTATION;
+  angle_e target_direction = right ? angle_e_rotate_right(pose_ang.nearest_direction()) : angle_e_rotate_left(pose_ang.nearest_direction());
+  mstate_rotation_to(Angle{ target_direction });
 }
 
 void cmdTreatment(int cmd) {
+  // TODO
   if (cmd == 0x1C) {
-    mstate_start(movement_type_e::FORWARD, TICKS_FORWARD);
+    overmstate_start_surge(overmstate_e::FORWARD);
   } else if (cmd == 0x1F) {
-    pixels.setPixelColor(4, 0, 0, 150);
-    angle_e target_direction = angle_e_rotate_left(pose_ang.nearest_direction());
-    mstate_rotation_to(Angle{target_direction});
+    overmstate_start_yaw(false);
   } else if (cmd == 0x1E) {
-    pixels.setPixelColor(4, 0, 0, 150);
-    angle_e target_direction = angle_e_rotate_right(pose_ang.nearest_direction());
-    mstate_rotation_to(Angle{target_direction});
+    overmstate_start_yaw(true);
   } else if (cmd == 0x1D) {
-    mstate_start(movement_type_e::BACKWARDS, TICKS_FORWARD);
+    overmstate_start_surge(overmstate_e::BACKWARDS);
   } else if (cmd == 0b00000000) {
     Serial.write('1');
     int16_t posein[3];
@@ -327,10 +450,10 @@ void cmdTreatment(int cmd) {
       posein[j] = Serial.read();
       Serial.write('1');
     }
-    pose_real = RealPosition {posein[0], posein[1]};
-    pose_ang = Angle { posein[2] };
+    pose_real = RealPosition{ posein[0], posein[1] };
+    pose_ang = Angle{ posein[2] };
     pose_time = millis();
-    pixels.setPixelColor(6, posein[0], posein[1], posein[2]);
+    pixels.setPixelColor(4, posein[0], posein[1], posein[2]);
     pixels.show();
   } else {
     mstate_reset();
@@ -404,12 +527,15 @@ void loop() {
   //closeServo();
   int iii = 0;
   pixels.setPixelColor(0, 150, 0, 0);
+  for (int i = 1; i < 7; i++) {
+    pixels.setPixelColor(i, 0, 0, 0);
+  }
   pixels.show();
 
   while (1) {
     if (Serial.available()) {
-      pixels.setPixelColor(iii % 4, 150, 0, 0, 0);
-      pixels.setPixelColor((iii + 1) % 4, 0, 150, 0, 0);
+      pixels.setPixelColor(iii % 3, 150, 0, 0, 0);
+      pixels.setPixelColor((iii + 1) % 3, 0, 150, 0, 0);
 
       pixels.show();
       iii++;
@@ -419,9 +545,13 @@ void loop() {
 
     switch (mstate) {
       case mstate_e::STOPPED:
+        pixels.setPixelColor(5, 150, 0, 0);
+        pixels.show();
         break;
 
       case mstate_e::STARTUP:
+        pixels.setPixelColor(5, 0, 150, 0);
+        pixels.show();
         // Check if both motors started rotating and we can move to normal moving operation
         if ((m1e_count >= STARTUP_TICKS) && (m2e_count >= STARTUP_TICKS)) {
           mt_setVelocity(BASE_PWM, BASE_PWM);
@@ -439,6 +569,8 @@ void loop() {
         break;
 
       case mstate_e::MOVING:
+        pixels.setPixelColor(5, 0, 0, 150);
+        pixels.show();
         // Check if we rotated enough
         // For forward/backwards
         if ((((m1e_total_count + m1e_count + m2e_total_count + m2e_count) >= m12e_target) && (movement_type == movement_type_e::FORWARD || movement_type == movement_type_e::BACKWARDS))
@@ -487,6 +619,8 @@ void loop() {
 
 
       case mstate_e::BRAKES:
+        pixels.setPixelColor(5, 150, 0, 150);
+        pixels.show();
         if (millis() - mstate_timer > BRAKE_TIME) {
           mstate = mstate_e::WAITING_POSE;
           mstate_timer = millis();
@@ -495,19 +629,31 @@ void loop() {
         break;
 
       case mstate_e::WAITING_POSE:
+        pixels.setPixelColor(5, 150, 150, 150);
+        pixels.show();
+
         if (pose_time > mstate_timer) {
-          if (0) {
-            // TODO: surge
-          }
-          if (abs(pose_ang.diff(movement_final_angle)) < ANGLE_MOVE_TOLERANCE) {
-            pixels.setPixelColor(4, 0, 150, 0);
-            pixels.show();
-            mstate_reset();
-            Serial.write('1');
-          } else {
-            pixels.setPixelColor(4, 150, 0, 0);
-            pixels.show();
-            mstate_rotation_to(movement_final_angle);
+          switch (overmstate) {
+            case overmstate_e::FORWARD:
+            case overmstate_e::BACKWARDS:
+              overmstate_surge_run();
+
+              break;
+            case overmstate_e::PURE_ROTATION:
+              if (abs(pose_ang.diff(movement_final_angle)) < ANGLE_MOVE_TOLERANCE) {
+                pixels.setPixelColor(7, 0, 100, 0);
+                pixels.show();
+                overmstate_reset();
+                Serial.write('1');
+              } else {
+                pixels.setPixelColor(7, 100, 0, 0);
+                pixels.show();
+                mstate_rotation_to(movement_final_angle);
+              }
+              break;
+            default:
+              overmstate_reset();
+              break;
           }
         }
         break;
