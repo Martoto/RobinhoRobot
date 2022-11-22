@@ -1,8 +1,9 @@
 #include <math.h>
 
-#include "ServoTimer2.h"
+//#include "ServoTimer2.h"
 #include <SoftwareSerial.h>
 #include "pins.h"
+#include "cmd.h"
 #include "Adafruit_TCS34725.h"
 #include <Adafruit_NeoPixel.h>
 
@@ -25,6 +26,9 @@
 #define SURGE_MOVE_TOLERANCE 5
 #define PWM_MAX 250
 #define GRID_SIZE 25
+
+
+uint8_t initFlag = 0;
 
 enum angle_e : int16_t {
   EAST = 0,
@@ -209,7 +213,7 @@ Angle RealPosition::angle_to(RealPosition b) {
 
 Adafruit_TCS34725 tcs = Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_614MS, TCS34725_GAIN_1X);
 Adafruit_NeoPixel pixels(8, 13, NEO_GRB + NEO_KHZ800);
-ServoTimer2 myservo;
+//ServoTimer2 myservo;
 
 volatile byte m1e_count = 0;
 volatile byte m2e_count = 0;
@@ -304,15 +308,15 @@ void resetGpio() {
   pixels.clear();
   pixels.show();
   setVelocity(0, 0);
-  myservo.write(2250);
+  //myservo.write(2250);
 }
 
 void openServo() {
-  myservo.write(2250);
+  //myservo.write(2250);
 }
 
 void closeServo() {
-  myservo.write(750);
+  //myservo.write(750);
 }
 
 void mt_setVelocity(int motor1, int motor2) {
@@ -434,28 +438,33 @@ void overmstate_start_yaw(bool right) {
 
 void cmdTreatment(int cmd) {
   // TODO
-  if (cmd == 0x1C) {
-    overmstate_start_surge(overmstate_e::FORWARD);
-  } else if (cmd == 0x1F) {
-    overmstate_start_yaw(false);
-  } else if (cmd == 0x1E) {
-    overmstate_start_yaw(true);
-  } else if (cmd == 0x1D) {
-    overmstate_start_surge(overmstate_e::BACKWARDS);
-  } else if (cmd == 0b00000000) {
+  if (cmd == CMD_POSE) {
     Serial.write('1');
     int16_t posein[3];
     for (int j = 0; j < 3; j++) {
       while (!Serial.available()) {}
       posein[j] = Serial.read();
-      Serial.write('1');
+      //Serial.write('');
     }
     pose_real = RealPosition{ posein[0], posein[1] };
     pose_ang = Angle{ posein[2] };
     pose_time = millis();
     pixels.setPixelColor(4, posein[0], posein[1], posein[2]);
     pixels.show();
+    initFlag = 1;
+    Serial.write('!');
+  } else if (!initFlag) {
+    return;
+  } else if (cmd ==  CMD_FORWARD) {
+    overmstate_start_surge(overmstate_e::FORWARD);
+  } else if (cmd == CMD_LEFT) {
+    overmstate_start_yaw(false);
+  } else if (cmd == CMD_RIGHT) {
+    overmstate_start_yaw(true);
+  } else if (cmd == CMD_BACKWARD) {
+    overmstate_start_surge(overmstate_e::BACKWARDS);
   } else {
+    Serial.write('?');
     mstate_reset();
 
     if (cmd == 0x1B) {
@@ -512,7 +521,7 @@ void setup() {
   pinMode(m1p2, OUTPUT);
   pinMode(m2p1, OUTPUT);
   pinMode(m2p2, OUTPUT);
-  myservo.attach(servo);
+  //myservo.attach(servo);
   pixels.begin();
 
 
