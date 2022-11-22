@@ -1,9 +1,9 @@
-#define CMD_FORWARD 'f'
-#define CMD_LEFT 'l' 
-#define CMD_RIGHT 'r' 
-#define CMD_BACKWARD 'b' 
+#define CMD_FORWARD 0b00011100
+#define CMD_LEFT 0b00011111
+#define CMD_RIGHT 0b00011110
+#define CMD_BACKWARD 0b00011101
 
 #define CMD_OPEN_CLAW 0X1B 
 #define CMD_CLOSE_SERVO 0X1A 
 
-#define CMD_POSE 'p' 
+#define CMD_POSE 0x00

@@ -8,8 +8,8 @@
 #include <Adafruit_NeoPixel.h>
 
 #define BASE_PWM 60
-#define TICKS_ROTATE_90 8
-#define PULSES_PER_DISTANCE (42.0 / 25.0)
+#define ANGLE_PER_PULSE 8
+#define PULSES_PER_DISTANCE (1.3)
 #define BRAKE_TIME 500
 #define PWM_SURGE_MAX_ADJ 100
 #define PWM_SURGE_ADJ_KP 35
@@ -17,24 +17,26 @@
 #define PWM_SWAY_ADJ_KP 15
 #define BASETIME 200
 #define PWM_BASE_STUCK 10
-#define STARTUP_TICKS 2
+#define STARTUP_TICKS 1
 #define PWM_STARTUP_BOOST 150
 #define PWM_STARTUP 90
 #define STARTUP_BOOST_TIME 150
 #define ENCODER_PPR 20
-#define ANGLE_MOVE_TOLERANCE 10
+#define ANGLE_MOVE_TOLERANCE 7
 #define SURGE_MOVE_TOLERANCE 5
 #define PWM_MAX 250
 #define GRID_SIZE 25
+
+#define DEBUG 1
 
 
 uint8_t initFlag = 0;
 
 enum angle_e : int16_t {
   EAST = 0,
-  SOUTH = 64,
+  NORTH = 64,
   WEST = 128,
-  NORTH = 192,
+  SOUTH = 192,
   INVALID = 1000
 };
 
@@ -96,8 +98,20 @@ struct Angle {
   }
 
   int16_t diff(Angle b) {
-    int16_t k = (this->val - b.val) % 256;
-    return min(256 - k, k);
+    Serial.println("diff angles: ");
+    
+	int16_t r = (b.val - this->val) % 256;
+    Serial.println(r, DEC);
+  
+	if (r < -128)
+		r += 256;
+	if (r >= 128)
+		r -= 256;
+    
+    Serial.println(this->val, DEC);
+    Serial.println(b.val, DEC);
+    Serial.println(r, DEC);
+    return r;
   }
 
   void opposite() {
@@ -133,6 +147,10 @@ struct Angle {
       mdiff = calc;
       ret = NORTH;
     }
+
+    Serial.println("nearest");
+    Serial.println(ret, DEC);
+    Serial.println(this->val, DEC);
 
     return ret;
   }
@@ -198,16 +216,16 @@ struct GridPosition {
 };
 
 GridPosition RealPosition::to_grid() {
-  return GridPosition{ x: this->x / 8, y: this->y / 8 };
+  return GridPosition{ x: this->x / GRID_SIZE, y: this->y / GRID_SIZE };
 }
 
 double RealPosition::distance(RealPosition b) {
   return sqrt(sq(this->x - b.x) + sq(this->y - b.y));
 }
 Angle RealPosition::angle_to(RealPosition b) {
-  float radians = atan2(this->y - b.y, this->x - b.x);
+  float radians = atan2(this->y - b.y, b.x - this->x);
   Angle ret = Angle{ val: static_cast<int16_t>(256.0 * radians / (2 * 3.14159)) % 256 };
-  ret.opposite();  // https://en.cppreference.com/w/cpp/numeric/math/atan2
+  //ret.opposite();  // https://en.cppreference.com/w/cpp/numeric/math/atan2
   return ret;
 }
 
@@ -366,8 +384,17 @@ void mstate_rotation_to(Angle target);
 void mstate_rotation_to(Angle target) {
   movement_final_angle = target;
   int16_t diff = pose_ang.diff(target);
-  int16_t encoder_pulses = (TICKS_ROTATE_90 * abs(diff)) / (256 / 4);
-  mstate_start((diff < 0) ? movement_type_e::RIGHT : movement_type_e::LEFT, encoder_pulses);
+  int16_t encoder_pulses = abs(diff) / ANGLE_PER_PULSE;
+  if (abs(diff) < 15) {
+    encoder_pulses = 0;
+  }
+  Serial.println("mstate_rotation_to");
+  Serial.println(diff, DEC);
+  Serial.println(encoder_pulses, DEC);
+  movement_type_e dir = (diff < 0) ? movement_type_e::RIGHT : movement_type_e::LEFT;
+  Serial.println(static_cast<int>(dir), DEC);
+
+  mstate_start(dir, encoder_pulses);
 }
 
 void overmstate_reset() {
@@ -381,13 +408,18 @@ void overmstate_surge_run() {
   if (pose_real.distance(overmstate_target_realpos) < SURGE_MOVE_TOLERANCE) {
     // Finish angle good?
     if (abs(pose_ang.diff(movement_final_angle)) < ANGLE_MOVE_TOLERANCE) {
+      Serial.println("overmstate_surge_run fim");
+
       pixels.setPixelColor(4, 0, 0, 100);
       pixels.show();
       overmstate_reset();
       Serial.write('1');
     } else {
+      Serial.println("overmstate_surge_run angulo errado pose certa");
+
       pixels.setPixelColor(4, 0, 100, 0);
       pixels.show();
+
       mstate_rotation_to(movement_final_angle);
     }
   } else {
@@ -395,15 +427,25 @@ void overmstate_surge_run() {
     if (overmstate == overmstate_e::BACKWARDS) {
       target_move_angle.opposite();
     }
+    Serial.println("target_move_angle: ");
+    Serial.println(target_move_angle.val, DEC);
+
     // Move angle good?
     if (abs(pose_ang.diff(target_move_angle)) < ANGLE_MOVE_TOLERANCE) {
+
+      Serial.println("overmstate_surge_run pose errada angulo de movimento certo");
+
       pixels.setPixelColor(4, 100, 100, 100);
-      pixels.show();//193,68
+      pixels.show();
       int16_t pulses = PULSES_PER_DISTANCE * pose_real.distance(overmstate_target_realpos);
+      Serial.println(pulses, DEC);
       mstate_start(overmstate == overmstate_e::FORWARD ? movement_type_e::FORWARD : movement_type_e::BACKWARDS, pulses);
     } else {
+      Serial.println("overmstate_surge_run girar e depois andar");
+
       pixels.setPixelColor(4, 100, 0, 0);
       pixels.show();
+
       mstate_rotation_to(target_move_angle);
     }
   }
@@ -411,7 +453,11 @@ void overmstate_surge_run() {
 
 void overmstate_start_surge(overmstate_e overmstate_in);
 void overmstate_start_surge(overmstate_e overmstate_in) {
+
   movement_final_angle = pose_ang.nearest_direction();
+  Serial.println("movement_final_angle");
+  Serial.println(movement_final_angle.val, DEC);
+
   if (!pose_real.to_grid().isMoveValid(pose_ang.nearest_direction())) {
     pixels.setPixelColor(6, 0, 100, 100);
     pixels.show();
@@ -425,6 +471,9 @@ void overmstate_start_surge(overmstate_e overmstate_in) {
   overmstate = overmstate_in;
 
   overmstate_target_realpos = pose_real.to_grid().move(pose_ang.nearest_direction()).to_real_center();
+  Serial.println("overmstate_target_realpos");
+  Serial.println(overmstate_target_realpos.x, DEC);
+  Serial.println(overmstate_target_realpos.y, DEC);
   overmstate_surge_run();
 }
 
@@ -444,7 +493,7 @@ void cmdTreatment(int cmd) {
     for (int j = 0; j < 3; j++) {
       while (!Serial.available()) {}
       posein[j] = Serial.read();
-      //Serial.write('');
+      Serial.write('1');
     }
     pose_real = RealPosition{ posein[0], posein[1] };
     pose_ang = Angle{ posein[2] };
@@ -452,10 +501,9 @@ void cmdTreatment(int cmd) {
     pixels.setPixelColor(4, posein[0], posein[1], posein[2]);
     pixels.show();
     initFlag = 1;
-    Serial.write('!');
   } else if (!initFlag) {
     return;
-  } else if (cmd ==  CMD_FORWARD) {
+  } else if (cmd == CMD_FORWARD) {
     overmstate_start_surge(overmstate_e::FORWARD);
   } else if (cmd == CMD_LEFT) {
     overmstate_start_yaw(false);
@@ -464,7 +512,6 @@ void cmdTreatment(int cmd) {
   } else if (cmd == CMD_BACKWARD) {
     overmstate_start_surge(overmstate_e::BACKWARDS);
   } else {
-    Serial.write('?');
     mstate_reset();
 
     if (cmd == 0x1B) {
