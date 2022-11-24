@@ -8,8 +8,8 @@ from machine import UART
 def read_camera_color(uart):
     return 0
 
-def read_floor_color(uart, PC_server):
-    cor = int(arduino_cmd(0b11100000, uart, PC_server))
+def read_floor_color(uart):
+    cor = int(arduino_cmd(0b11100000, uart))
     print(cor)
     if cor == 0:
         return "#FFFFFF"
