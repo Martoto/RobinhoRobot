@@ -12,6 +12,8 @@
 //#define DEBUG
 #define PDEBUG
 
+void(* resetFunc) (void) = 0;  // declare reset fuction at address 0
+
 uint8_t initFlag = 0;
 
 enum angle_e : int16_t {
@@ -512,8 +514,14 @@ void overmstate_start_yaw(bool right) {
 }
 
 void cmdTreatment(int cmd) {
-  // TODO
-  if (cmd == CMD_POSE) {
+  if(cmd == CMD_RESET) {
+    resetFunc();
+  } else if (cmd == CMD_STOP) {
+    setVelocity(0, 0);
+    resetGpio();
+    overmstate_reset();
+    mstate_reset();
+  } else if (cmd == CMD_POSE) {
     /*
     if ((mstate != mstate_e::WAITING_POSE) && (mstate != mstate_e::STOPPED)) {
       Serial.write('1');
@@ -559,7 +567,7 @@ void cmdTreatment(int cmd) {
     } else if (cmd == 0x1A) {
       closeServo();
       Serial.write('1');
-    } else if ((cmd & 0x1F) == 0x18) {
+    } else if ((cmd & CMD_COLOR_MASK) == CMD_COLOR_VALUE) {
 #ifdef PDEBUG
       pixels.setPixelColor(7, pixels.Color((cmd & 0x80) ? 255 : 0, (cmd & 0x40) ? 255 : 0, (cmd & 0x20) ? 255 : 0));
       pixels.show();  // Send the updated pixel colors to the hardware
@@ -570,7 +578,7 @@ void cmdTreatment(int cmd) {
       pixels.show();  // Send the updated pixel colors to the hardware
 #endif
       Serial.write('1');
-    } else if (cmd == 0b11100000) {
+    } else if (cmd == CMD_READCOLOR) {
       Serial.write('1');
       // TODO
       //Serial.write(grid_colors[GridPosition.current()]);
@@ -587,7 +595,7 @@ void cmdTreatment(int cmd) {
         Serial.write('4');
       }
       */
-    } else if (cmd == 0b11100001) {
+    } else if (cmd == CMD_BATTERY) {
       // TODO read battery
       Serial.write('4');
     }
