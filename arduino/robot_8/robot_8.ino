@@ -9,9 +9,7 @@
 #include "Adafruit_TCS34725.h"
 #include <Adafruit_NeoPixel.h>
 
-
 //#define DEBUG
-
 
 uint8_t initFlag = 0;
 
@@ -320,15 +318,15 @@ void resetGpio() {
   pixels.clear();
   pixels.show();
   setVelocity(0, 0);
-  //myservo.write(2250);
+  myservo.write(900);
 }
 
 void openServo() {
-  //myservo.write(2250);
+  myservo.write(900);
 }
 
 void closeServo() {
-  //myservo.write(750);
+  myservo.write(1500);
 }
 
 void mt_setVelocity(int motor1, int motor2) {
@@ -592,34 +590,9 @@ void setup() {
   myservo.attach(servo);
   pixels.begin();
   
-
-
-
   pinMode(m1e, INPUT_PULLUP);
   pinMode(m2e, INPUT_PULLUP);
   enable_encoder_interrupts();
-  while(1)
-  {
-    pixels.setPixelColor(0, 150, 150, 150);
-    pixels.show();
-  myservo.write(1500);
-    delay(1000);
-
-    pixels.setPixelColor(1, 150, 150, 150);
-    pixels.show();
-  myservo.write(1200);
-    delay(1000);
-    
-    pixels.setPixelColor(2, 150, 150, 150);
-    pixels.show();
-  myservo.write(1000);
-    delay(1000);
-    
-    pixels.setPixelColor(3, 150, 150, 150);
-    pixels.show();
-  myservo.write(900);
-    delay(1000);
-  }
   
   resetGpio();
 }
@@ -627,7 +600,6 @@ void setup() {
 
 
 void loop() {
-  //closeServo();
   int iii = 0;
   pixels.setPixelColor(0, 150, 0, 0);
   for (int i = 1; i < 7; i++) {
