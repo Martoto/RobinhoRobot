@@ -420,10 +420,35 @@ void overmstate_reset() {
 }
 
 void overmstate_surge_run() {
+  Angle target_move_angle = pose_real.angle_to(overmstate_target_realpos);
+  if (overmstate == overmstate_e::BACKWARDS) {
+    target_move_angle.opposite();
+  }
+#ifdef DEBUG
+  Serial.print("target_move_angle: ");
+  Serial.println(target_move_angle.val, DEC);
+#endif
+
+
   // Position good?
   if (pose_real.distance(overmstate_target_realpos) < SURGE_MOVE_EUCLIDEAN_TOLERANCE) {
-    // Finish angle good?
-    if (abs(pose_ang.diff(overmstate_target_angle)) < ANGLE_MOVE_TOLERANCE) {
+    // Position could be better by going forward?
+    if ((pose_real.distance(overmstate_target_realpos) > SURGE_MOVE_FORWARD_TOLERANCE) && (abs(pose_ang.diff(target_move_angle)) < SURGE_MOVE_FORWARD_ANGLE_TOLERANCE)) {
+#ifdef PDEBUG
+      pixels.setPixelColor(4, 0, 100, 100);
+      pixels.show();
+#endif
+      //int16_t pulses = PULSES_PER_DISTANCE * pose_real.distance(overmstate_target_realpos);
+      int16_t pulses = 0;
+#ifdef DEBUG
+      Serial.print("overmstate_surge_run pose melhoravel angulo de movimento certo ");
+
+      Serial.println(pulses, DEC);
+#endif
+      mstate_start(overmstate == overmstate_e::FORWARD ? movement_type_e::FORWARD : movement_type_e::BACKWARDS, pulses);
+
+      // Finish angle good?
+    } else if (abs(pose_ang.diff(overmstate_target_angle)) < ANGLE_MOVE_TOLERANCE) {
 #ifdef DEBUG
       Serial.println("overmstate_surge_run fim");
 #endif
@@ -444,14 +469,6 @@ void overmstate_surge_run() {
       mstate_rotation_to(overmstate_target_angle);
     }
   } else {
-    Angle target_move_angle = pose_real.angle_to(overmstate_target_realpos);
-    if (overmstate == overmstate_e::BACKWARDS) {
-      target_move_angle.opposite();
-    }
-#ifdef DEBUG
-    Serial.print("target_move_angle: ");
-    Serial.println(target_move_angle.val, DEC);
-#endif
     // Move angle good?
     if (abs(pose_ang.diff(target_move_angle)) < ANGLE_MOVE_TOLERANCE) {
 #ifdef PDEBUG
