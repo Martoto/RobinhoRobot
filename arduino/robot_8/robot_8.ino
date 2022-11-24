@@ -3,7 +3,6 @@
 #include "parameters.h"
 
 #include <math.h>
-
 #include "ServoTimer2.h"
 #include <SoftwareSerial.h>
 #include "Adafruit_TCS34725.h"
@@ -611,22 +610,18 @@ void cmdTreatment(int cmd) {
 #endif
       Serial.write('1');
     } else if (cmd == CMD_READCOLOR) {
-      Serial.write('1');
-      // TODO
-      //Serial.write(grid_colors[GridPosition.current()]);
-      /*
-      if ((r > 150) && (g > 150) && (b > 150)) {
+      GridPosition grid = pose_real.to_grid();
+      if ((grid.x == 9) && (grid.y == 3)) {
+        Serial.write('3'); // yellow
+      } else if ((grid.x == 6) && (grid.y == 3)) {
+        Serial.write('1'); // red
+      } else if ((grid.x == 9) && (grid.y == 0)) {
+        Serial.write('2'); // Green
+      } else if ((grid.x == 6) && (grid.y == 0)) {
+        Serial.write('4'); // Blue
+      } else {
         Serial.write('0');
-      } else if ((r > 150) && (g > 150)) {
-        Serial.write('3');
-      } else if (r > 150) {
-        Serial.write('1');
-      } else if (g > 150) {
-        Serial.write('2');
-      } else if (b > 150) {
-        Serial.write('4');
       }
-      */
     } else if (cmd == CMD_BATTERY) {
       // TODO read battery
       Serial.write('4');
