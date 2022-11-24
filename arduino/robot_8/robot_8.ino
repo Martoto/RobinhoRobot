@@ -1,33 +1,16 @@
-#include <math.h>
-
-//#include "ServoTimer2.h"
-#include <SoftwareSerial.h>
 #include "pins.h"
 #include "cmd.h"
+#include "parameters.h"
+
+#include <math.h>
+
+#include "ServoTimer2.h"
+#include <SoftwareSerial.h>
 #include "Adafruit_TCS34725.h"
 #include <Adafruit_NeoPixel.h>
 
-#define BASE_PWM 60
-#define ANGLE_PER_PULSE 8
-#define PULSES_PER_DISTANCE (1.3)
-#define BRAKE_TIME 500
-#define PWM_SURGE_MAX_ADJ 100
-#define PWM_SURGE_ADJ_KP 35
-#define PWM_SWAY_MAX_ADJ 30
-#define PWM_SWAY_ADJ_KP 15
-#define BASETIME 200
-#define PWM_BASE_STUCK 10
-#define STARTUP_TICKS 1
-#define PWM_STARTUP_BOOST 150
-#define PWM_STARTUP 90
-#define STARTUP_BOOST_TIME 150
-#define ENCODER_PPR 20
-#define ANGLE_MOVE_TOLERANCE 7
-#define SURGE_MOVE_TOLERANCE 5
-#define PWM_MAX 250
-#define GRID_SIZE 25
 
-#define DEBUG 1
+//#define DEBUG
 
 
 uint8_t initFlag = 0;
@@ -98,19 +81,22 @@ struct Angle {
   }
 
   int16_t diff(Angle b) {
-    Serial.println("diff angles: ");
-    
-	int16_t r = (b.val - this->val) % 256;
+
+    int16_t r = (b.val - this->val) % 256;
+    if (r < -128)
+      r += 256;
+    if (r >= 128)
+      r -= 256;
+
+#ifdef DEBUG
+    Serial.print("diff angles: ");
+    Serial.print(this->val, DEC);
+    Serial.print(" ");
+    Serial.print(b.val, DEC);
+    Serial.print(" ");
     Serial.println(r, DEC);
-  
-	if (r < -128)
-		r += 256;
-	if (r >= 128)
-		r -= 256;
-    
-    Serial.println(this->val, DEC);
-    Serial.println(b.val, DEC);
-    Serial.println(r, DEC);
+#endif
+
     return r;
   }
 
@@ -148,9 +134,12 @@ struct Angle {
       ret = NORTH;
     }
 
-    Serial.println("nearest");
-    Serial.println(ret, DEC);
+#ifdef DEBUG
+    Serial.print("nearest: ");
+    Serial.print(ret, DEC);
+    Serial.print(" ");
     Serial.println(this->val, DEC);
+#endif
 
     return ret;
   }
@@ -182,7 +171,10 @@ struct GridPosition {
   }
 
   RealPosition to_real_center() {
-    return RealPosition{ x: this->x * GRID_SIZE + (GRID_SIZE / 2), y: this->y * GRID_SIZE + (GRID_SIZE / 2) };
+    return RealPosition{
+      x: this->x * GRID_SIZE + (GRID_SIZE / 2),
+      y: this->y * GRID_SIZE + (GRID_SIZE / 2)
+    };
   }
 
   GridPosition move(angle_e direction) {
@@ -222,16 +214,17 @@ GridPosition RealPosition::to_grid() {
 double RealPosition::distance(RealPosition b) {
   return sqrt(sq(this->x - b.x) + sq(this->y - b.y));
 }
+
 Angle RealPosition::angle_to(RealPosition b) {
-  float radians = atan2(this->y - b.y, b.x - this->x);
-  Angle ret = Angle{ val: static_cast<int16_t>(256.0 * radians / (2 * 3.14159)) % 256 };
+  float radianss = atan2(this->y - b.y, b.x - this->x);
+  Angle ret = Angle{ val: static_cast<int16_t>(((256.0 * radianss) / (2 * 3.14159))) % 256 };
   //ret.opposite();  // https://en.cppreference.com/w/cpp/numeric/math/atan2
   return ret;
 }
 
 Adafruit_TCS34725 tcs = Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_614MS, TCS34725_GAIN_1X);
 Adafruit_NeoPixel pixels(8, 13, NEO_GRB + NEO_KHZ800);
-//ServoTimer2 myservo;
+ServoTimer2 myservo;
 
 volatile byte m1e_count = 0;
 volatile byte m2e_count = 0;
@@ -273,6 +266,7 @@ enum class overmstate_e {
 
 overmstate_e overmstate = overmstate_e::STOPPED;
 RealPosition overmstate_target_realpos = RealPosition{ 0, 0 };
+Angle overmstate_target_angle = Angle{ 0 };
 
 // x y ang
 RealPosition pose_real = { 0, 0 };
@@ -290,10 +284,10 @@ void m2e_i() {
 }
 
 void setBrake() {
-  analogWrite(m1p1, PWM_MAX);
-  analogWrite(m1p2, PWM_MAX);
-  analogWrite(m2p1, PWM_MAX);
-  analogWrite(m2p2, PWM_MAX);
+  analogWrite(m1p1, PWM_BRAKE);
+  analogWrite(m1p2, PWM_BRAKE);
+  analogWrite(m2p1, PWM_BRAKE);
+  analogWrite(m2p2, PWM_BRAKE);
 }
 
 void setVelocity(int motor1, int motor2) {
@@ -375,7 +369,6 @@ void mstate_start(movement_type_e movetype, int16_t target) {
 
   unstuck_boost = 0;
 
-
   movement_type = movetype;
   mt_setVelocity(PWM_STARTUP, PWM_STARTUP);
 }
@@ -385,14 +378,20 @@ void mstate_rotation_to(Angle target) {
   movement_final_angle = target;
   int16_t diff = pose_ang.diff(target);
   int16_t encoder_pulses = abs(diff) / ANGLE_PER_PULSE;
-  if (abs(diff) < 15) {
+  if (abs(diff) < MIN_ANGLE_ROT) {
     encoder_pulses = 0;
   }
-  Serial.println("mstate_rotation_to");
-  Serial.println(diff, DEC);
-  Serial.println(encoder_pulses, DEC);
+
   movement_type_e dir = (diff < 0) ? movement_type_e::RIGHT : movement_type_e::LEFT;
+
+#ifdef DEBUG
+  Serial.print("mstate_rotation_to - diff, encoder_pulses, dir: ");
+  Serial.print(diff, DEC);
+  Serial.print(" ");
+  Serial.print(encoder_pulses, DEC);
+  Serial.print(" ");
   Serial.println(static_cast<int>(dir), DEC);
+#endif
 
   mstate_start(dir, encoder_pulses);
 }
@@ -400,50 +399,56 @@ void mstate_rotation_to(Angle target) {
 void overmstate_reset() {
   overmstate = overmstate_e::STOPPED;
   overmstate_target_realpos = RealPosition{ 0, 0 };
+  overmstate_target_angle = Angle{ 0 };
   mstate_reset();
 }
 
 void overmstate_surge_run() {
   // Position good?
-  if (pose_real.distance(overmstate_target_realpos) < SURGE_MOVE_TOLERANCE) {
+  if (pose_real.distance(overmstate_target_realpos) < SURGE_MOVE_EUCLIDEAN_TOLERANCE) {
     // Finish angle good?
-    if (abs(pose_ang.diff(movement_final_angle)) < ANGLE_MOVE_TOLERANCE) {
+    if (abs(pose_ang.diff(overmstate_target_angle)) < ANGLE_MOVE_TOLERANCE) {
+#ifdef DEBUG
       Serial.println("overmstate_surge_run fim");
-
-      pixels.setPixelColor(4, 0, 0, 100);
+#endif
+      pixels.setPixelColor(4, 0, 0, 0);
       pixels.show();
       overmstate_reset();
       Serial.write('1');
     } else {
+#ifdef DEBUG
       Serial.println("overmstate_surge_run angulo errado pose certa");
-
+#endif
       pixels.setPixelColor(4, 0, 100, 0);
       pixels.show();
 
-      mstate_rotation_to(movement_final_angle);
+      mstate_rotation_to(overmstate_target_angle);
     }
   } else {
     Angle target_move_angle = pose_real.angle_to(overmstate_target_realpos);
     if (overmstate == overmstate_e::BACKWARDS) {
       target_move_angle.opposite();
     }
-    Serial.println("target_move_angle: ");
+#ifdef DEBUG
+    Serial.print("target_move_angle: ");
     Serial.println(target_move_angle.val, DEC);
-
+#endif
     // Move angle good?
     if (abs(pose_ang.diff(target_move_angle)) < ANGLE_MOVE_TOLERANCE) {
-
-      Serial.println("overmstate_surge_run pose errada angulo de movimento certo");
-
-      pixels.setPixelColor(4, 100, 100, 100);
+      pixels.setPixelColor(4, 100, 0, 0);
       pixels.show();
       int16_t pulses = PULSES_PER_DISTANCE * pose_real.distance(overmstate_target_realpos);
+#ifdef DEBUG
+      Serial.print("overmstate_surge_run pose errada angulo de movimento certo ");
+
       Serial.println(pulses, DEC);
+#endif
       mstate_start(overmstate == overmstate_e::FORWARD ? movement_type_e::FORWARD : movement_type_e::BACKWARDS, pulses);
     } else {
+#ifdef DEBUG
       Serial.println("overmstate_surge_run girar e depois andar");
-
-      pixels.setPixelColor(4, 100, 0, 0);
+#endif
+      pixels.setPixelColor(4, 0, 0, 100);
       pixels.show();
 
       mstate_rotation_to(target_move_angle);
@@ -455,9 +460,11 @@ void overmstate_start_surge(overmstate_e overmstate_in);
 void overmstate_start_surge(overmstate_e overmstate_in) {
 
   movement_final_angle = pose_ang.nearest_direction();
-  Serial.println("movement_final_angle");
-  Serial.println(movement_final_angle.val, DEC);
-
+  overmstate_target_angle = movement_final_angle;
+#ifdef DEBUG
+  Serial.print("overmstate_target_angle: ");
+  Serial.println(overmstate_target_angle.val, DEC);
+#endif
   if (!pose_real.to_grid().isMoveValid(pose_ang.nearest_direction())) {
     pixels.setPixelColor(6, 0, 100, 100);
     pixels.show();
@@ -471,9 +478,13 @@ void overmstate_start_surge(overmstate_e overmstate_in) {
   overmstate = overmstate_in;
 
   overmstate_target_realpos = pose_real.to_grid().move(pose_ang.nearest_direction()).to_real_center();
-  Serial.println("overmstate_target_realpos");
-  Serial.println(overmstate_target_realpos.x, DEC);
+#ifdef DEBUG
+
+  Serial.print("overmstate_target_realpos: ");
+  Serial.print(overmstate_target_realpos.x, DEC);
+  Serial.print(" ");
   Serial.println(overmstate_target_realpos.y, DEC);
+#endif
   overmstate_surge_run();
 }
 
@@ -488,6 +499,14 @@ void overmstate_start_yaw(bool right) {
 void cmdTreatment(int cmd) {
   // TODO
   if (cmd == CMD_POSE) {
+/*
+    if ((mstate != mstate_e::WAITING_POSE) && (mstate != mstate_e::STOPPED)) {
+      Serial.write('1');
+      Serial.write('1');
+      Serial.write('1');
+      Serial.write('1');
+    }
+*/
     Serial.write('1');
     int16_t posein[3];
     for (int j = 0; j < 3; j++) {
@@ -495,12 +514,14 @@ void cmdTreatment(int cmd) {
       posein[j] = Serial.read();
       Serial.write('1');
     }
+
     pose_real = RealPosition{ posein[0], posein[1] };
     pose_ang = Angle{ posein[2] };
     pose_time = millis();
-    pixels.setPixelColor(4, posein[0], posein[1], posein[2]);
+    pixels.setPixelColor(3, posein[0], posein[1], posein[2]);
     pixels.show();
     initFlag = 1;
+
   } else if (!initFlag) {
     return;
   } else if (cmd == CMD_FORWARD) {
@@ -568,15 +589,41 @@ void setup() {
   pinMode(m1p2, OUTPUT);
   pinMode(m2p1, OUTPUT);
   pinMode(m2p2, OUTPUT);
-  //myservo.attach(servo);
+  myservo.attach(servo);
   pixels.begin();
+  
+
 
 
   pinMode(m1e, INPUT_PULLUP);
   pinMode(m2e, INPUT_PULLUP);
   enable_encoder_interrupts();
+  while(1)
+  {
+    pixels.setPixelColor(0, 150, 150, 150);
+    pixels.show();
+  myservo.write(1500);
+    delay(1000);
+
+    pixels.setPixelColor(1, 150, 150, 150);
+    pixels.show();
+  myservo.write(1200);
+    delay(1000);
+    
+    pixels.setPixelColor(2, 150, 150, 150);
+    pixels.show();
+  myservo.write(1000);
+    delay(1000);
+    
+    pixels.setPixelColor(3, 150, 150, 150);
+    pixels.show();
+  myservo.write(900);
+    delay(1000);
+  }
+  
   resetGpio();
 }
+
 
 
 void loop() {
@@ -594,6 +641,7 @@ void loop() {
       pixels.setPixelColor((iii + 1) % 3, 0, 150, 0, 0);
 
       pixels.show();
+
       iii++;
       int cmd = Serial.read();
       cmdTreatment(cmd);
@@ -601,6 +649,7 @@ void loop() {
 
     switch (mstate) {
       case mstate_e::STOPPED:
+        setVelocity(0, 0);
         pixels.setPixelColor(5, 150, 0, 0);
         pixels.show();
         break;
@@ -608,25 +657,52 @@ void loop() {
       case mstate_e::STARTUP:
         pixels.setPixelColor(5, 0, 150, 0);
         pixels.show();
+
+        if (millis() - mstate_timer > 3000) {
+          setVelocity(0, 0);
+          mstate_reset();
+          Serial.write('1');
+        }
+
         // Check if both motors started rotating and we can move to normal moving operation
         if ((m1e_count >= STARTUP_TICKS) && (m2e_count >= STARTUP_TICKS)) {
           mt_setVelocity(BASE_PWM, BASE_PWM);
-
-          //Serial.println("1-2");
+#ifdef DEBUG
+          Serial.println("end startup");
+#endif
           mstate = mstate_e::MOVING;
           mstate_timer = millis();
 
           // Check if the startup is taking too long, and if yes, raise PWM even higher
         } else if (millis() - mstate_timer > STARTUP_BOOST_TIME) {
+          
+          
+          setVelocity(0, 0);
+          for (int i = 0; i < 7; i++) {
+            pixels.setPixelColor(i, 0, 0, 150);
+            pixels.show();
+          }
+          while (1) {}
+          
+
           int m1 = (m1e_count >= STARTUP_TICKS) ? BASE_PWM : PWM_STARTUP_BOOST;
           int m2 = (m2e_count >= STARTUP_TICKS) ? BASE_PWM : PWM_STARTUP_BOOST;
           mt_setVelocity(m1, m2);
+        } else {
+            mt_setVelocity(PWM_STARTUP, PWM_STARTUP);
         }
         break;
 
       case mstate_e::MOVING:
         pixels.setPixelColor(5, 0, 0, 150);
         pixels.show();
+
+        if (millis() - mstate_timer > 3000) {
+          setVelocity(0, 0);
+          mstate_reset();
+          Serial.write('1');
+        }
+
         // Check if we rotated enough
         // For forward/backwards
         if ((((m1e_total_count + m1e_count + m2e_total_count + m2e_count) >= m12e_target) && (movement_type == movement_type_e::FORWARD || movement_type == movement_type_e::BACKWARDS))
@@ -635,15 +711,28 @@ void loop() {
           mstate = mstate_e::BRAKES;
           mstate_timer = millis();
           setBrake();
-
+#ifdef DEBUG
+          Serial.println("end moving");
+#endif
           // Run normal controller
         } else {
           disable_encoder_interrupts();
 
+
           // If either motor hasn't rotated at all for BASETIME and is probably stuck, increase the base PWM power for both, increasing with time stuck
           if ((millis() - m1e_last > BASETIME) || (millis() - m2e_last > BASETIME)) {
             unstuck_boost = PWM_BASE_STUCK * max((millis() - m1e_last) / BASETIME, (millis() - m2e_last) / BASETIME);
+            
+            
+            setVelocity(0, 0);
+            for (int i = 0; i < 7; i++) {
+              pixels.setPixelColor(i, 0, 150, 0);
+              pixels.show();
+            }
+            while (1) {}
+                        
           }
+
 
           unstuck_boost = constrain(unstuck_boost, 0, 255);
 
@@ -675,20 +764,28 @@ void loop() {
 
 
       case mstate_e::BRAKES:
+        setBrake();
         pixels.setPixelColor(5, 150, 0, 150);
         pixels.show();
         if (millis() - mstate_timer > BRAKE_TIME) {
           mstate = mstate_e::WAITING_POSE;
           mstate_timer = millis();
           setVelocity(0, 0);
+#ifdef DEBUG
+          Serial.println("end brakes");
+#endif
         }
         break;
 
       case mstate_e::WAITING_POSE:
+        setVelocity(0, 0);
         pixels.setPixelColor(5, 150, 150, 150);
         pixels.show();
 
         if (pose_time > mstate_timer) {
+#ifdef DEBUG
+          Serial.println("end waiting");
+#endif
           switch (overmstate) {
             case overmstate_e::FORWARD:
             case overmstate_e::BACKWARDS:
