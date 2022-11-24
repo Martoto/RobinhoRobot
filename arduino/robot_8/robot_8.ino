@@ -265,6 +265,7 @@ enum class overmstate_e {
   BACKWARDS
 };
 
+int is_open = 1;
 overmstate_e overmstate = overmstate_e::STOPPED;
 RealPosition overmstate_target_realpos = RealPosition{ 0, 0 };
 Angle overmstate_target_angle = Angle{ 0 };
@@ -317,19 +318,33 @@ void setVelocity(int motor1, int motor2) {
   }
 }
 
+
 void resetGpio() {
   pixels.clear();
   pixels.show();
   setVelocity(0, 0);
-  myservo.write(900);
+  is_open = 0;
+  openServo();
+}
+
+
+void closeServo() {
+#ifdef DEBUG
+  Serial.println("closeServo");
+#endif
+  for (int i = 1500; i > 900; i -= 10) {
+    myservo.write(i);
+  }
 }
 
 void openServo() {
-  myservo.write(900);
-}
+#ifdef DEBUG
+  Serial.println("openServo");
+#endif
 
-void closeServo() {
-  myservo.write(1500);
+  for (int i = 900; i < 1700; i += 10) {
+    myservo.write(i);
+  }
 }
 
 void mt_setVelocity(int motor1, int motor2) {
@@ -561,10 +576,10 @@ void cmdTreatment(int cmd) {
   } else {
     mstate_reset();
 
-    if (cmd == 0x1B) {
+    if (cmd == CMD_OPEN_CLAW) {
       openServo();
       Serial.write('1');
-    } else if (cmd == 0x1A) {
+    } else if (cmd == CMD_CLOSE_SERVO) {
       closeServo();
       Serial.write('1');
     } else if ((cmd & CMD_COLOR_MASK) == CMD_COLOR_VALUE) {
@@ -620,6 +635,7 @@ void setup() {
   pinMode(m2p1, OUTPUT);
   pinMode(m2p2, OUTPUT);
   myservo.attach(servo);
+  myservo.write(1000);
   pixels.begin();
 
   pinMode(m1e, INPUT_PULLUP);
