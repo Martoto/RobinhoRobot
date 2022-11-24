@@ -10,9 +10,9 @@
 #include <Adafruit_NeoPixel.h>
 
 //#define DEBUG
-#define PDEBUG
+//#define PDEBUG
 
-void(* resetFunc) (void) = 0;  // declare reset fuction at address 0
+void (*resetFunc)(void) = 0;  // declare reset fuction at address 0
 
 uint8_t initFlag = 0;
 
@@ -529,7 +529,7 @@ void overmstate_start_yaw(bool right) {
 }
 
 void cmdTreatment(int cmd) {
-  if(cmd == CMD_RESET) {
+  if (cmd == CMD_RESET) {
     resetFunc();
   } else if (cmd == CMD_STOP) {
     setVelocity(0, 0);
@@ -673,6 +673,7 @@ void loop() {
 
     switch (mstate) {
       case mstate_e::STOPPED:
+
         setVelocity(0, 0);
 
 #ifdef PDEBUG
