@@ -23,11 +23,24 @@ def read_floor_color(uart, PC_server):
         return "#0000FF"
     else:
         return "#000000"
-         
-def receive_pose(uart, PC_server):
+
+
+def receive_pose(uart):
     print("receive_pose")
+    s=socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
     try:
-        data = PC_server.recv(1024).decode()  # receive response
+        s.bind(('0.0.0.0',5070)) 
+        data,addr=s.recvfrom(100)
+    except Exception as e:
+        print("fail1", e)
+        s.close()
+        return
+    s.close()
+
+    try:
+        print('received:',data,'from',addr)
+        data = data.decode()
         print("data:", data)
         x, y, angle = eval(data)
         print("x:", x)
@@ -56,8 +69,9 @@ def receive_pose(uart, PC_server):
         while uart.any()==0:
             img = get_image(camera)
         uart.read(1)
-    except:
-         print('no data')
+    except Exception as e:
+        print("fail2", e)
+        return
     
 def get_image(camera):
     return 0
@@ -77,17 +91,17 @@ def blink(time_delay, flash):
         time.sleep(time_delay)
         print("blinked")
 
-def arduino_cmd(cmd, uart, PC_server):
+def arduino_cmd(cmd, uart):
     print("send", bin(cmd))
-    receive_pose(uart, PC_server)
+    receive_pose(uart)
     uart.write(chr(cmd))
+    time.sleep(1)
     while uart.any()==0:
         img = get_image(camera)
         if(uart.any()!=0):
             break
-        receive_pose(uart, PC_server)
+        receive_pose(uart)
     resp = uart.read(1)
     return resp
-
 
 
