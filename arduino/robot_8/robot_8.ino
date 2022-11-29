@@ -171,22 +171,65 @@ struct GridPosition {
   }
 
   RealPosition to_real_center() {
-    return RealPosition{
-      x: this->x * GRID_SIZE + (GRID_SIZE / 2),
-      y: this->y * GRID_SIZE + (GRID_SIZE / 2)
-    };
+    if (this->isLarge()) {
+      return RealPosition{
+        x: GRID_LARGE_X_REAL_START + this->x * GRID_SIZE_LARGE + (GRID_SIZE_LARGE / 2),
+        y: GRID_LARGE_Y_REAL_START + this->y * GRID_SIZE_LARGE + (GRID_SIZE_LARGE / 2)
+      };
+    } else {
+      return RealPosition{
+        x: GRID_SMALL_X_REAL_START + this->x * GRID_SIZE_SMALL + (GRID_SIZE_SMALL / 2),
+        y: GRID_SMALL_Y_REAL_START + this->y * GRID_SIZE_SMALL + (GRID_SIZE_SMALL / 2)
+      };
+    }
   }
 
   GridPosition move(angle_e direction) {
     switch (direction) {
       case NORTH:
-        return GridPosition{ x: x, y: y - 1 };
+        if (y != GRID_LARGE_Y_GRID_START) {
+          return GridPosition{ x: x, y: y - 1 };
+        } else {
+          switch (x) {
+            case 3:
+              return GridPosition{ x: 1, y: y - 1 };
+            case 4:
+              return GridPosition{ x: 2, y: y - 1 };
+            case 5:
+              return GridPosition{ x: 4, y: y - 1 };
+            case 6:
+              return GridPosition{ x: 5, y: y - 1 };
+            case 0:
+            case 1:
+            case 2:
+            default:
+              return GridPosition{ -1, -1 };
+          }
+        }
       case WEST:
         return GridPosition{ x: x - 1, y: y };
       case EAST:
         return GridPosition{ x: x + 1, y: y };
       case SOUTH:
-        return GridPosition{ x: x, y: y + 1 };
+        if (y != (GRID_LARGE_Y_GRID_START - 1)) {
+          return GridPosition{ x: x, y: y + 1 };
+        } else {
+          switch (x) {
+            case 1:
+              return GridPosition{ x: 3, y: y + 1 };
+            case 2:
+              return GridPosition{ x: 4, y: y + 1 };
+            case 3:
+              return GridPosition{ x: 5, y: y + 1 };
+            case 4:
+              return GridPosition{ x: 5, y: y + 1 };
+            case 5:
+              return GridPosition{ x: 6, y: y + 1 };
+            case 0:
+            default:
+              return GridPosition{ -1, -1 };
+          }
+        }
       default:
         return GridPosition{ -1, -1 };
     }
@@ -197,18 +240,33 @@ struct GridPosition {
     if (newpos.x < 0 || newpos.y < 0) {
       return false;
     }
-    if (newpos.x > 9 || newpos.y > 8) {
-      return false;
-    }
-    if (newpos.x < 4 && newpos.y < 4) {
-      return false;
+    if (newpos.isLarge()) {
+      if (newpos.x > GRID_LARGE_X_GRID_END || newpos.y > GRID_LARGE_Y_GRID_END) {
+        return false;
+      }
+    } else {
+      if (newpos.x > GRID_SMALL_X_GRID_END) {
+        return false;
+      }
     }
     return true;  // TODO walls
+  }
+
+  bool isLarge() {
+    if (this->y >= GRID_LARGE_Y_GRID_START) {
+      return true;
+    } else {
+      return false;
+    }
   }
 };
 
 GridPosition RealPosition::to_grid() {
-  return GridPosition{ x: this->x / GRID_SIZE, y: this->y / GRID_SIZE };
+  if (this->y < GRID_LARGE_Y_GRID_START) {
+    return GridPosition{ x: (this->x - GRID_SMALL_X_REAL_START) / GRID_SIZE_SMALL, y: (this->y - GRID_SMALL_Y_REAL_START) / GRID_SIZE_SMALL };
+  } else {
+    return GridPosition{ x: (this->x - GRID_LARGE_X_REAL_START) / GRID_SIZE_LARGE, y: (this->y - GRID_LARGE_Y_REAL_START) / GRID_SIZE_LARGE };
+  }
 }
 
 double RealPosition::distance(RealPosition b) {
@@ -612,13 +670,13 @@ void cmdTreatment(int cmd) {
     } else if (cmd == CMD_READCOLOR) {
       GridPosition grid = pose_real.to_grid();
       if ((grid.x == 9) && (grid.y == 3)) {
-        Serial.write('3'); // yellow
+        Serial.write('3');  // yellow
       } else if ((grid.x == 6) && (grid.y == 3)) {
-        Serial.write('1'); // red
+        Serial.write('1');  // red
       } else if ((grid.x == 9) && (grid.y == 0)) {
-        Serial.write('2'); // Green
+        Serial.write('2');  // Green
       } else if ((grid.x == 6) && (grid.y == 0)) {
-        Serial.write('4'); // Blue
+        Serial.write('4');  // Blue
       } else {
         Serial.write('0');
       }
