@@ -13,7 +13,8 @@
 
 void (*resetFunc)(void) = 0;  // declare reset fuction at address 0
 
-uint8_t initFlag = 0;
+////////////////////////////////////////////////////
+// enums
 
 enum angle_e : int16_t {
   EAST = 0,
@@ -53,25 +54,30 @@ angle_e angle_e_rotate_right(angle_e in) {
   }
 }
 
-/*
-const byte grid_colors[8][8] = {
-  {0, 0, 0},
-  {0, 0, 0},
-  {0, 0, 0}
+enum class mstate_e {
+  STOPPED,
+  STARTUP,
+  MOVING,
+  BRAKES,
+  WAITING_POSE
 };
 
-const byte return_to_base_dir[8][8] = {
-  {0, 0, 0},
-  {0, 0, 0},
-  {0, 0, 0}
+enum class movement_type_e {
+  FORWARD,
+  LEFT,
+  RIGHT,
+  BACKWARDS
 };
 
-const byte blocked_moves[8][8] = {
-  {0, 0, 0},
-  {0, 0, 0},
-  {0, 0, 0}
+enum class overmstate_e {
+  STOPPED,
+  PURE_ROTATION,
+  FORWARD,
+  BACKWARDS
 };
-*/
+
+////////////////////////////////////////////////////
+// classes
 
 struct Angle {
   int16_t val = 0;
@@ -280,6 +286,39 @@ Angle RealPosition::angle_to(RealPosition b) {
   return ret;
 }
 
+////////////////////////////////////////////////////
+// consts
+
+/*
+const byte grid_colors[8][8] = {
+  {0, 0, 0},
+  {0, 0, 0},
+  {0, 0, 0}
+};
+
+const byte return_to_base_dir[8][8] = {
+  {0, 0, 0},
+  {0, 0, 0},
+  {0, 0, 0}
+};
+
+const byte blocked_moves[8][8] = {
+  {0, 0, 0},
+  {0, 0, 0},
+  {0, 0, 0}
+};
+*/
+
+////////////////////////////////////////////////////
+// global vars
+
+
+mstate_e mstate = mstate_e::STOPPED;
+uint32_t mstate_timer = 0;
+
+
+uint8_t initFlag = 0;
+
 Adafruit_TCS34725 tcs = Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_614MS, TCS34725_GAIN_1X);
 Adafruit_NeoPixel pixels(8, 13, NEO_GRB + NEO_KHZ800);
 ServoTimer2 myservo;
@@ -295,32 +334,7 @@ uint16_t m1e_total_count = 0;
 uint16_t m2e_total_count = 0;
 Angle movement_final_angle = 0;
 
-enum class mstate_e {
-  STOPPED,
-  STARTUP,
-  MOVING,
-  BRAKES,
-  WAITING_POSE
-};
-
-mstate_e mstate = mstate_e::STOPPED;
-uint32_t mstate_timer = 0;
-
-enum class movement_type_e {
-  FORWARD,
-  LEFT,
-  RIGHT,
-  BACKWARDS
-};
-
 movement_type_e movement_type = movement_type_e::FORWARD;
-
-enum class overmstate_e {
-  STOPPED,
-  PURE_ROTATION,
-  FORWARD,
-  BACKWARDS
-};
 
 int is_open = 1;
 overmstate_e overmstate = overmstate_e::STOPPED;
@@ -331,6 +345,10 @@ Angle overmstate_target_angle = Angle{ 0 };
 RealPosition pose_real = { 0, 0 };
 Angle pose_ang = { 0 };
 uint32_t pose_time = 0;
+
+////////////////////////////////////////////////////
+// functions
+
 
 void m1e_i() {
   m1e_count++;
@@ -722,8 +740,8 @@ void setup() {
 }
 
 void loop() {
-  int iii = 0;
 #ifdef PDEBUG
+  int iii = 0;
   pixels.setPixelColor(0, 150, 0, 0);
   pixels.show();
 #endif
