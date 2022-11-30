@@ -10,6 +10,7 @@
 #define CMD_STOP 0x19
 #define CMD_POSE 0x00
 #define CMD_RESET 0x17
+#define CMD_RETURN 0x16
 
 #define CMD_COLOR_VALUE 0x18
 #define CMD_COLOR_MASK 0x1F

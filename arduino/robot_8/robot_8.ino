@@ -289,25 +289,17 @@ Angle RealPosition::angle_to(RealPosition b) {
 ////////////////////////////////////////////////////
 // consts
 
-/*
-const byte grid_colors[8][8] = {
-  {0, 0, 0},
-  {0, 0, 0},
-  {0, 0, 0}
+const angle_e return_to_base_dir[7][7] = {
+  { EAST, SOUTH, WEST, WEST, WEST, WEST, WEST },
+  { EAST, SOUTH, WEST, WEST, WEST, WEST, WEST },
+  { EAST, SOUTH, WEST, WEST, WEST, WEST, WEST },
+  { EAST, INVALID, WEST, WEST, WEST, WEST, WEST },
+  { EAST, EAST, EAST, NORTH, WEST, WEST, WEST },
+  { EAST, EAST, EAST, NORTH, WEST, WEST, WEST },
+  { EAST, EAST, EAST, NORTH, WEST, WEST, WEST },
 };
 
-const byte return_to_base_dir[8][8] = {
-  {0, 0, 0},
-  {0, 0, 0},
-  {0, 0, 0}
-};
-
-const byte blocked_moves[8][8] = {
-  {0, 0, 0},
-  {0, 0, 0},
-  {0, 0, 0}
-};
-*/
+const angle_e return_to_base_final_dir = EAST;
 
 ////////////////////////////////////////////////////
 // global vars
@@ -345,6 +337,7 @@ Angle overmstate_target_angle = Angle{ 0 };
 RealPosition pose_real = { 0, 0 };
 Angle pose_ang = { 0 };
 uint32_t pose_time = 0;
+bool returning_to_base = false;
 
 ////////////////////////////////////////////////////
 // functions
@@ -487,6 +480,8 @@ void mstate_rotation_to(Angle target) {
   mstate_start(dir, encoder_pulses);
 }
 
+void run_return_to_base();
+
 void overmstate_reset() {
   overmstate = overmstate_e::STOPPED;
   overmstate_target_realpos = RealPosition{ 0, 0 };
@@ -532,7 +527,11 @@ void overmstate_surge_run() {
       pixels.show();
 #endif
       overmstate_reset();
-      Serial.write('1');
+      if (!returning_to_base) {
+        Serial.write('1');
+      } else {
+        run_return_to_base();
+      }
     } else {
 #ifdef DEBUG
       Serial.println("overmstate_surge_run angulo errado pose certa");
@@ -580,7 +579,11 @@ void overmstate_yaw_run() {
 #endif
 
     overmstate_reset();
-    Serial.write('1');
+    if (!returning_to_base) {
+      Serial.write('1');
+    } else {
+      run_return_to_base();
+    }
   } else {
 
 #ifdef PDEBUG
@@ -641,6 +644,34 @@ void overmstate_start_yaw(bool right) {
   mstate_rotation_to(Angle{ target_direction });
 }
 
+void run_return_to_base() {
+  angle_e next = return_to_base_dir[pose_real.to_grid().y][pose_real.to_grid().x];
+  if (next == angle_e::INVALID) {
+    if (pose_ang.nearest_direction() == return_to_base_final_dir) {
+      returning_to_base = false;
+      Serial.write('1');
+    } else {
+      if (angle_e_rotate_left(pose_ang.nearest_direction()) == return_to_base_final_dir) {
+        overmstate_start_yaw(false);
+      } else {
+        overmstate_start_yaw(true);
+      }
+    }
+    mstate_rotation_to(return_to_base_final_dir);
+  } else {
+    if (pose_ang.nearest_direction() == next) {
+      overmstate_start_surge(overmstate_e::FORWARD);
+    } else {
+      if (angle_e_rotate_left(pose_ang.nearest_direction()) == next) {
+        overmstate_start_yaw(false);
+      } else {
+        overmstate_start_yaw(true);
+      }
+    }
+  }
+}
+
+
 void cmdTreatment(int cmd) {
   if (cmd == CMD_RESET) {
     resetFunc();
@@ -649,6 +680,14 @@ void cmdTreatment(int cmd) {
     resetGpio();
     overmstate_reset();
     mstate_reset();
+  } else if (cmd == CMD_RETURN) {
+    setVelocity(0, 0);
+    resetGpio();
+    overmstate_reset();
+    mstate_reset();
+
+    returning_to_base = true;
+    run_return_to_base();
   } else if (cmd == CMD_POSE) {
     /*
     if ((mstate != mstate_e::WAITING_POSE) && (mstate != mstate_e::STOPPED)) {
@@ -802,6 +841,8 @@ void loop() {
         if (millis() - mstate_timer > 3000) {
           setVelocity(0, 0);
           mstate_reset();
+          overmstate_reset();
+          returning_to_base = false;
           Serial.write('1');
         }
 
@@ -844,6 +885,8 @@ void loop() {
         if (millis() - mstate_timer > 3000) {
           setVelocity(0, 0);
           mstate_reset();
+          overmstate_reset();
+          returning_to_base = false;
           Serial.write('1');
         }
 
