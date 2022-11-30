@@ -95,7 +95,7 @@ def arduino_cmd(cmd, uart):
     print("send", bin(cmd))
     receive_pose(uart)
     uart.write(chr(cmd))
-    time.sleep(1)
+    time.sleep(2)
     while uart.any()==0:
         img = get_image(camera)
         if(uart.any()!=0):
