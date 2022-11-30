@@ -571,6 +571,27 @@ void overmstate_surge_run() {
   }
 }
 
+void overmstate_yaw_run() {
+  if (abs(pose_ang.diff(movement_final_angle)) < ANGLE_MOVE_TOLERANCE) {
+
+#ifdef PDEBUG
+    pixels.setPixelColor(7, 0, 100, 0);
+    pixels.show();
+#endif
+
+    overmstate_reset();
+    Serial.write('1');
+  } else {
+
+#ifdef PDEBUG
+    pixels.setPixelColor(7, 100, 0, 0);
+    pixels.show();
+#endif
+
+    mstate_rotation_to(movement_final_angle);
+  }
+}
+
 void overmstate_start_surge(overmstate_e overmstate_in);
 void overmstate_start_surge(overmstate_e overmstate_in) {
 
@@ -920,27 +941,9 @@ void loop() {
             case overmstate_e::FORWARD:
             case overmstate_e::BACKWARDS:
               overmstate_surge_run();
-
               break;
             case overmstate_e::PURE_ROTATION:
-              if (abs(pose_ang.diff(movement_final_angle)) < ANGLE_MOVE_TOLERANCE) {
-
-#ifdef PDEBUG
-                pixels.setPixelColor(7, 0, 100, 0);
-                pixels.show();
-#endif
-
-                overmstate_reset();
-                Serial.write('1');
-              } else {
-
-#ifdef PDEBUG
-                pixels.setPixelColor(7, 100, 0, 0);
-                pixels.show();
-#endif
-
-                mstate_rotation_to(movement_final_angle);
-              }
+              overmstate_yaw_run();
               break;
             default:
               overmstate_reset();
