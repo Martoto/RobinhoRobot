@@ -747,13 +747,13 @@ void cmdTreatment(int cmd) {
       Serial.write('1');
     } else if (cmd == CMD_READCOLOR) {
       GridPosition grid = pose_real.to_grid();
-      if ((grid.x == 9) && (grid.y == 3)) {
+      if ((grid.x == 5) && (grid.y == 3)) {
         Serial.write('3');  // yellow
-      } else if ((grid.x == 6) && (grid.y == 3)) {
+      } else if ((grid.x == 2) && (grid.y == 3)) {
         Serial.write('1');  // red
-      } else if ((grid.x == 9) && (grid.y == 0)) {
+      } else if ((grid.x == 5) && (grid.y == 0)) {
         Serial.write('2');  // Green
-      } else if ((grid.x == 6) && (grid.y == 0)) {
+      } else if ((grid.x == 2) && (grid.y == 0)) {
         Serial.write('4');  // Blue
       } else {
         Serial.write('0');

@@ -9,7 +9,11 @@ def read_camera_color(uart):
     return 0
 
 def read_floor_color(uart):
-    cor = int(arduino_cmd(0b11100000, uart))
+    corin = arduino_cmd(0b11100000, uart)
+    try:
+        cor = int(corin)
+    except Exception as e:
+        print("conv", e)
     print(cor)
     if cor == 0:
         return "#FFFFFF"
