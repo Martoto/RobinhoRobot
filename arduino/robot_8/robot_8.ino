@@ -77,6 +77,62 @@ enum class overmstate_e {
 };
 
 ////////////////////////////////////////////////////
+// consts
+
+const angle_e return_to_base_dir[7][7] = {
+  { EAST, SOUTH, WEST, WEST, WEST, WEST, WEST },
+  { EAST, SOUTH, WEST, WEST, WEST, WEST, WEST },
+  { EAST, SOUTH, WEST, WEST, WEST, WEST, WEST },
+  { EAST, INVALID, WEST, WEST, WEST, WEST, WEST },
+  { EAST, EAST, EAST, NORTH, WEST, WEST, WEST },
+  { EAST, EAST, EAST, NORTH, WEST, WEST, WEST },
+  { EAST, EAST, EAST, NORTH, WEST, WEST, WEST },
+};
+
+const angle_e return_to_base_final_dir = EAST;
+
+
+const bool wall_north[7][7] = {
+  { true, true, true, true, true, true, true },
+  { false, false, false, false, false, false, false },
+  { false, false, false, false, false, false, false },
+  { true, true, true, false, false, false, false },
+  { false, false, false, false, false, false, false },
+  { true, true, true, false, false, false, false },
+  { false, false, false, false, false, false, false }
+};
+
+const bool wall_south[7][7] = {
+  { false, false, false, false, false, false, false },
+  { false, false, false, false, false, false, false },
+  { false, false, false, false, false, false, false },
+  { false, false, false, false, false, false, false },
+  { true, true, true, false, false, false, false },
+  { false, false, false, false, false, false, false },
+  { true, true, true, true, true, true, true }
+};
+
+const bool wall_west[7][7] = {
+  { true, false, false, false, false, false, false },
+  { true, false, false, false, false, false, false },
+  { true, false, false, false, false, false, false },
+  { true, false, false, false, false, false, false },
+  { true, false, false, false, false, false, false },
+  { true, false, false, false, false, false, false },
+  { true, false, false, false, false, false, true }
+};
+
+const bool wall_east[7][7] = {
+  { false, false, false, false, false, false, true },
+  { false, false, false, false, false, false, true },
+  { false, false, false, false, false, false, true },
+  { false, false, false, false, false, false, true },
+  { false, false, false, false, false, false, true },
+  { false, false, false, false, false, false, true },
+  { false, false, false, false, false, true, true }
+};
+
+////////////////////////////////////////////////////
 // classes
 
 struct Angle {
@@ -255,7 +311,18 @@ struct GridPosition {
         return false;
       }
     }
-    return true;  // TODO walls
+    switch (direction) {
+      case NORTH:
+        return !wall_north[this->y][this->x];
+      case SOUTH:
+        return !wall_south[this->y][this->x];
+      case EAST:
+        return !wall_east[this->y][this->x];
+      case WEST:
+        return !wall_west[this->y][this->x];
+      default:
+        return false;
+    }
   }
 
   bool isLarge() {
@@ -285,21 +352,6 @@ Angle RealPosition::angle_to(RealPosition b) {
   //ret.opposite();  // https://en.cppreference.com/w/cpp/numeric/math/atan2
   return ret;
 }
-
-////////////////////////////////////////////////////
-// consts
-
-const angle_e return_to_base_dir[7][7] = {
-  { EAST, SOUTH, WEST, WEST, WEST, WEST, WEST },
-  { EAST, SOUTH, WEST, WEST, WEST, WEST, WEST },
-  { EAST, SOUTH, WEST, WEST, WEST, WEST, WEST },
-  { EAST, INVALID, WEST, WEST, WEST, WEST, WEST },
-  { EAST, EAST, EAST, NORTH, WEST, WEST, WEST },
-  { EAST, EAST, EAST, NORTH, WEST, WEST, WEST },
-  { EAST, EAST, EAST, NORTH, WEST, WEST, WEST },
-};
-
-const angle_e return_to_base_final_dir = EAST;
 
 ////////////////////////////////////////////////////
 // global vars
@@ -942,7 +994,6 @@ void loop() {
           }
 
           mt_setVelocity(m1, m2);
-
         }
         break;
 
