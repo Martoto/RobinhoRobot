@@ -861,8 +861,8 @@ void loop() {
     if (Serial.available()) {
 
 #ifdef PDEBUG
-      pixels.setPixelColor(iii % 3, 150, 0, 0, 0);
-      pixels.setPixelColor((iii + 1) % 3, 0, 150, 0, 0);
+      pixels.setPixelColor(iii % 2, 150, 0, 0, 0);
+      pixels.setPixelColor((iii + 1) % 2, 0, 150, 0, 0);
       pixels.show();
       iii++;
 #endif
@@ -895,6 +895,8 @@ void loop() {
           mstate_reset();
           overmstate_reset();
           returning_to_base = false;
+          pixels.setPixelColor(3, 150, 0, 0);
+          pixels.show();
           Serial.write('1');
         }
 
@@ -939,6 +941,8 @@ void loop() {
           mstate_reset();
           overmstate_reset();
           returning_to_base = false;
+          pixels.setPixelColor(3, 0, 150, 0);
+          pixels.show();
           Serial.write('1');
         }
 

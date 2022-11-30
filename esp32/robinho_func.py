@@ -16,15 +16,15 @@ def read_floor_color(uart):
         print("conv", e)
     print(cor)
     if cor == 0:
-        return "#FFFFFF"
+        return "#ffffff"
     elif cor == 1:
-        return "#FF0000"
+        return "#ff0000"
     elif cor == 2:
-        return "#00FF00"
+        return "#00ff00"
     elif cor == 3:
-        return "#FFFF00"
+        return "#ffff00"
     elif cor == 4:
-        return "#0000FF"
+        return "#0000ff"
     else:
         return "#000000"
 
