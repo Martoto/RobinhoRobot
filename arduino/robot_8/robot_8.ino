@@ -903,8 +903,6 @@ void loop() {
 #endif
           // Run normal controller
         } else {
-          disable_encoder_interrupts();
-
 
           // If either motor hasn't rotated at all for BASETIME and is probably stuck, increase the base PWM power for both, increasing with time stuck
           if ((millis() - m1e_last > BASETIME) || (millis() - m2e_last > BASETIME)) {
@@ -945,7 +943,6 @@ void loop() {
 
           mt_setVelocity(m1, m2);
 
-          enable_encoder_interrupts();
         }
         break;
 
