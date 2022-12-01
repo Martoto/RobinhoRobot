@@ -8,28 +8,48 @@ from machine import UART
 def read_camera_color(uart):
     return 0
 
-def read_floor_color(uart):
-    corin = arduino_cmd(0b11100000, uart)
-    try:
-        cor = int(corin)
-    except Exception as e:
-        print("conv", e)
-    print(cor)
-    if cor == 0:
-        return "#ffffff"
-    elif cor == 1:
-        return "#ff0000"
-    elif cor == 2:
-        return "#00ff00"
-    elif cor == 3:
-        return "#ffff00"
-    elif cor == 4:
-        return "#0000ff"
+
+GRID_SIZE_SMALL= 25
+GRID_SIZE_LARGE =33
+GRID_SMALL_X_REAL_START= 100
+GRID_SMALL_Y_REAL_START =0
+GRID_SMALL_X_GRID_END= 5
+GRID_LARGE_X_REAL_START= 0
+GRID_LARGE_Y_REAL_START= 100
+GRID_LARGE_Y_GRID_START= 4
+GRID_LARGE_Y_GRID_END =6
+GRID_LARGE_X_GRID_END= 6
+
+
+def to_grid(x,y):
+    if y < GRID_LARGE_Y_REAL_START:
+        return (
+        (x - GRID_SMALL_X_REAL_START) // GRID_SIZE_SMALL,
+        (y - GRID_SMALL_Y_REAL_START) // GRID_SIZE_SMALL
+        )
     else:
+        return (
+        (x - GRID_LARGE_X_REAL_START) // GRID_SIZE_LARGE,
+        GRID_LARGE_Y_GRID_START + (y - GRID_LARGE_Y_REAL_START) // GRID_SIZE_LARGE
+        )
+
+
+def read_floor_color(uart):
+    x,y,angle = only_receive_pose()
+    x,y = to_grid(x,y)
+    print(x,y)
+    if ((x == 5) and (y == 3)):
+        return "#ffff00"
+    elif ((x == 2) and (y == 3)) :
+        return "#ff0000"
+    elif ((x == 5) and (y == 0)) :
+        return "#00ff00"
+    elif ((x == 2) and (y == 0)) :
+        return "#0000ff"
+    else :
         return "#000000"
 
-
-def receive_pose(uart):
+def only_receive_pose():
     print("receive_pose")
     s=socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
