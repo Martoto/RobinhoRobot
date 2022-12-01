@@ -29,9 +29,21 @@
 //other
 //#define ENCODER_PPR 20
 #define PWM_MAX 250
+
+//color
+#define COLOR_HIGH_RED 50
+#define COLOR_HIGH_GREEN 70
+#define COLOR_HIGH_BLUE 20
+#define COLOR_LOW 0
+
+//Servo
+#define OPEN_SERVO 1700
+#define CLOSE_SERVO 900
+
+//Grid
 #define GRID_SIZE_SMALL 25
 #define GRID_SIZE_LARGE 33
-#define GRID_SMALL_X_REAL_START 73
+#define GRID_SMALL_X_REAL_START 100
 #define GRID_SMALL_Y_REAL_START 0
 #define GRID_SMALL_X_GRID_END 5
 #define GRID_LARGE_X_REAL_START 0

@@ -5,8 +5,8 @@
 
 #define CMD_OPEN_CLAW 0x1B 
 #define CMD_CLOSE_SERVO 0x1A 
-#define CMD_BATTERY 0b11100001
-#define CMD_READCOLOR 0b11100000
+#define CMD_BATTERY 0xE1
+#define CMD_READCOLOR 0xE0
 #define CMD_STOP 0x19
 #define CMD_POSE 0x00
 #define CMD_RESET 0x17
@@ -14,3 +14,6 @@
 
 #define CMD_COLOR_VALUE 0x18
 #define CMD_COLOR_MASK 0x1F
+#define MASK_RED 0x80
+#define MASK_GREEN 0x40
+#define MASK_BLUE 0x20

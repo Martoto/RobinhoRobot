@@ -236,7 +236,7 @@ struct GridPosition {
     if (this->isLarge()) {
       return RealPosition{
         x: GRID_LARGE_X_REAL_START + this->x * GRID_SIZE_LARGE + (GRID_SIZE_LARGE / 2),
-        y: GRID_LARGE_Y_REAL_START + this->y * GRID_SIZE_LARGE + (GRID_SIZE_LARGE / 2)
+        y: GRID_LARGE_Y_REAL_START + (this->y - GRID_LARGE_Y_GRID_START) * GRID_SIZE_LARGE + (GRID_SIZE_LARGE / 2)
       };
     } else {
       return RealPosition{
@@ -335,10 +335,22 @@ struct GridPosition {
 };
 
 GridPosition RealPosition::to_grid() {
-  if (this->y < GRID_LARGE_Y_GRID_START) {
-    return GridPosition{ x: (this->x - GRID_SMALL_X_REAL_START) / GRID_SIZE_SMALL, y: (this->y - GRID_SMALL_Y_REAL_START) / GRID_SIZE_SMALL };
+#ifdef DEBUG
+  Serial.print(" realx: ");
+  Serial.print(this->x, DEC);
+  Serial.print(" realy: ");
+  Serial.println(this->y, DEC);
+#endif
+  if (this->y < GRID_LARGE_Y_REAL_START) {
+    return GridPosition{
+      x: (this->x - GRID_SMALL_X_REAL_START) / GRID_SIZE_SMALL,
+      y: (this->y - GRID_SMALL_Y_REAL_START) / GRID_SIZE_SMALL
+    };
   } else {
-    return GridPosition{ x: (this->x - GRID_LARGE_X_REAL_START) / GRID_SIZE_LARGE, y: (this->y - GRID_LARGE_Y_REAL_START) / GRID_SIZE_LARGE };
+    return GridPosition{
+      x: (this->x - GRID_LARGE_X_REAL_START) / GRID_SIZE_LARGE,
+      y: GRID_LARGE_Y_GRID_START + (this->y - GRID_LARGE_Y_REAL_START) / GRID_SIZE_LARGE
+    };
   }
 }
 
@@ -452,7 +464,7 @@ void closeServo() {
 #ifdef DEBUG
   Serial.println("closeServo");
 #endif
-  for (int i = 1500; i > 900; i -= 10) {
+  for (int i = 1500; i > CLOSE_SERVO; i -= 10) {
     myservo.write(i);
   }
 }
@@ -462,7 +474,7 @@ void openServo() {
   Serial.println("openServo");
 #endif
 
-  for (int i = 900; i < 1700; i += 10) {
+  for (int i = 900; i < OPEN_SERVO; i += 10) {
     myservo.write(i);
   }
 }
@@ -787,35 +799,45 @@ void cmdTreatment(int cmd) {
       closeServo();
       Serial.write('1');
     } else if ((cmd & CMD_COLOR_MASK) == CMD_COLOR_VALUE) {
-#ifdef PDEBUG
-      pixels.setPixelColor(7, pixels.Color((cmd & 0x80) ? 255 : 0, (cmd & 0x40) ? 255 : 0, (cmd & 0x20) ? 255 : 0));
       pixels.show();  // Send the updated pixel colors to the hardware
+#ifdef PDEBUG
+      int i = 0;
 #else
       for (int i = 0; i < 8; i++) {
-        pixels.setPixelColor(i, pixels.Color((cmd & 0x80) ? 255 : 0, (cmd & 0x40) ? 255 : 0, (cmd & 0x20) ? 255 : 0));
-      }
-      pixels.show();  // Send the updated pixel colors to the hardware
 #endif
-      Serial.write('1');
-    } else if (cmd == CMD_READCOLOR) {
-      GridPosition grid = pose_real.to_grid();
-      if ((grid.x == 5) && (grid.y == 3)) {
-        Serial.write('3');  // yellow
-      } else if ((grid.x == 2) && (grid.y == 3)) {
-        Serial.write('1');  // red
-      } else if ((grid.x == 5) && (grid.y == 0)) {
-        Serial.write('2');  // Green
-      } else if ((grid.x == 2) && (grid.y == 0)) {
-        Serial.write('4');  // Blue
-      } else {
-        Serial.write('0');
-      }
-    } else if (cmd == CMD_BATTERY) {
-      // TODO read battery
-      Serial.write('4');
+      pixels.setPixelColor(i, pixels.Color((cmd & MASK_RED) ? COLOR_HIGH_RED : COLOR_LOW, (cmd & MASK_GREEN) ? COLOR_HIGH_GREEN : COLOR_LOW, (cmd & MASK_BLUE) ? COLOR_HIGH_BLUE : COLOR_LOW));
+#ifndef PDEBUG
+    }
+#endif
+    pixels.show();  // Send the updated pixel colors to the hardware
+    Serial.write('1');
+  }
+  else if (cmd == CMD_READCOLOR) {
+    GridPosition grid = pose_real.to_grid();
+#ifdef DEBUG
+    Serial.print("x: ");
+    Serial.print(grid.x, DEC);
+    Serial.print(" y: ");
+    Serial.println(grid.y, DEC);
+#endif
+    if ((grid.x == 5) && (grid.y == 3)) {
+      Serial.write('3');  // yellow
+    } else if ((grid.x == 2) && (grid.y == 3)) {
+      Serial.write('1');  // red
+    } else if ((grid.x == 5) && (grid.y == 0)) {
+      Serial.write('2');  // Green
+    } else if ((grid.x == 2) && (grid.y == 0)) {
+      Serial.write('4');  // Blue
+    } else {
+      Serial.write('0');
     }
   }
-  return;
+  else if (cmd == CMD_BATTERY) {
+    // TODO read battery
+    Serial.write('4');
+  }
+}
+return;
 }
 
 void disable_encoder_interrupts() {
@@ -834,8 +856,7 @@ void setup() {
   pinMode(m1p2, OUTPUT);
   pinMode(m2p1, OUTPUT);
   pinMode(m2p2, OUTPUT);
-  myservo.attach(servo);
-  myservo.write(1000);
+  //myservo.attach(servo);
   pixels.begin();
 
   pinMode(m1e, INPUT_PULLUP);
@@ -852,17 +873,29 @@ void setup() {
 }
 
 void loop() {
+/*
+  while (1) {
+    for (int v = 0; v < 120; v++) {
+      for (int i = 0; i < 8; i++) {
+        pixels.setPixelColor(i, pixels.Color(v, 0, v));
+      }
+      pixels.show();
+        delay(100);
+      Serial.println(v, DEC);
+    }
+  }
+*/
 #ifdef PDEBUG
   int iii = 0;
-  pixels.setPixelColor(0, 150, 0, 0);
+  pixels.setPixelColor(1, 150, 0, 0);
   pixels.show();
 #endif
   while (1) {
     if (Serial.available()) {
 
 #ifdef PDEBUG
-      pixels.setPixelColor(iii % 2, 150, 0, 0, 0);
-      pixels.setPixelColor((iii + 1) % 2, 0, 150, 0, 0);
+      pixels.setPixelColor(1+ (iii % 2), 150, 0, 0, 0);
+      pixels.setPixelColor(1+ ((iii + 1) % 2), 0, 150, 0, 0);
       pixels.show();
       iii++;
 #endif
