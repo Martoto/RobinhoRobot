@@ -5,9 +5,40 @@ import camera
 from machine import Pin
 from machine import UART
 
-def read_camera_color(uart):
-    return 0
 
+HOSTPORTS = [("192.168.101.2", 5075)]
+
+def sendinfo(pose):
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    data = (str(pose) + "\n").encode()
+    #print("sending data: ", data)
+    for hostport in HOSTPORTS:
+        sock.sendto(data, hostport)
+    sock.close()
+
+
+def read_camera_color(uart):
+    print("read_camera_color")
+    s=socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.settimeout(30)
+
+    try:
+        s.bind(('0.0.0.0',5071))
+        data,addr=s.recvfrom(100)
+    except Exception as e:
+        print("fail1", e)
+        s.close()
+        raise e
+    s.close()
+
+    try:
+        print('received:',data,'from',addr)
+        data = data.decode()
+        print("data:", data)
+        return data
+    except Exception as e:
+        print("fail4", e)
+        raise e
 
 GRID_SIZE_SMALL= 25
 GRID_SIZE_LARGE =33
@@ -52,6 +83,7 @@ def read_floor_color(uart):
 def only_receive_pose():
     print("receive_pose")
     s=socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.settimeout(30)
 
     try:
         s.bind(('0.0.0.0',5070))
@@ -59,7 +91,7 @@ def only_receive_pose():
     except Exception as e:
         print("fail1", e)
         s.close()
-        return
+        raise e
     s.close()
 
     try:
@@ -72,7 +104,7 @@ def only_receive_pose():
         print("z:", angle)
     except Exception as e:
         print("fail3", e)
-        return
+        raise e
     return((x,y,angle))
 
 def receive_pose(uart):
@@ -81,7 +113,7 @@ def receive_pose(uart):
 
 def send_pose(x, y, angle, uart):
     try:
-        uart.write(chr(0b00000000))
+        uart.write(b'\x00')
         while uart.any()==0:
             img = get_image()
         uart.read(1)
@@ -105,7 +137,7 @@ def send_pose(x, y, angle, uart):
         uart.read(1)
     except Exception as e:
         print("fail2", e)
-        return
+        raise e
     
 def get_image():
     try:
@@ -134,15 +166,30 @@ def blink(time_delay, flash):
 
 def arduino_cmd(cmd, uart):
     print("send", bin(cmd))
+    sendinfo("sending " + str(cmd))
+    sendinfo("uart: " + str(uart.any())) 
     receive_pose(uart)
-    uart.write(chr(cmd))
+    sendinfo("posed")
+    sendinfo("uart: " + str(uart.any()))     
+    uart.write(cmd.to_bytes(1, "little"))
+    sendinfo("cmded")
+    sendinfo("uart: " + str(uart.any())) 
     time.sleep(2)
+    sendinfo("slept")
+    sendinfo("uart: " + str(uart.any())) 
     while uart.any()==0:
+        sendinfo("datar")        
+        sendinfo("uart: " + str(uart.any())) 
         get_image()
         if(uart.any()!=0):
             break
         receive_pose(uart)
+    sendinfo("waited")        
+    sendinfo("uart: " + str(uart.any())) 
     resp = uart.read(1)
+    sendinfo("read")    
+    sendinfo("uart: " + str(uart.any())) 
     return resp
+
 
 
