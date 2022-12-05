@@ -31,8 +31,8 @@
 #define PWM_MAX 250
 
 //color
-#define COLOR_HIGH_RED 50
-#define COLOR_HIGH_GREEN 70
+#define COLOR_HIGH_RED 80
+#define COLOR_HIGH_GREEN 50
 #define COLOR_HIGH_BLUE 20
 #define COLOR_LOW 0
 
