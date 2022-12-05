@@ -96,8 +96,8 @@ const bool wall_north[7][7] = {
   { true, true, true, true, true, true, true },
   { false, false, false, false, false, false, false },
   { false, false, false, false, false, false, false },
-  { true, true, true, false, false, false, false },
   { false, false, false, false, false, false, false },
+  { true, true, true, false, false, false, false },
   { true, true, true, false, false, false, false },
   { false, false, false, false, false, false, false }
 };
@@ -118,8 +118,8 @@ const bool wall_west[7][7] = {
   { true, false, false, false, false, false, false },
   { true, false, false, false, false, false, false },
   { true, false, false, false, false, false, false },
-  { true, false, false, false, false, false, false },
-  { true, false, false, false, false, false, true }
+  { true, false, false, false, false, true, false },
+  { true, false, false, false, false, true, false }
 };
 
 const bool wall_east[7][7] = {
@@ -128,8 +128,8 @@ const bool wall_east[7][7] = {
   { false, false, false, false, false, false, true },
   { false, false, false, false, false, false, true },
   { false, false, false, false, false, false, true },
-  { false, false, false, false, false, false, true },
-  { false, false, false, false, false, true, true }
+  { false, false, false, false, true, false, true },
+  { false, false, false, false, true, false, true }
 };
 
 ////////////////////////////////////////////////////
