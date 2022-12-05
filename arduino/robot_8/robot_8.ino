@@ -850,7 +850,7 @@ void enable_encoder_interrupts() {
 }
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(9600, SERIAL_8N1);
 
   pinMode(m1p1, OUTPUT);
   pinMode(m1p2, OUTPUT);
