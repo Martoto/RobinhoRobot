@@ -638,7 +638,7 @@ void overmstate_yaw_run() {
   if (abs(pose_ang.diff(movement_final_angle)) < ANGLE_MOVE_TOLERANCE) {
 
 #ifdef PDEBUG
-    pixels.setPixelColor(7, 0, 100, 0);
+    pixels.setPixelColor(6, 0, 100, 0);
     pixels.show();
 #endif
 
@@ -651,7 +651,7 @@ void overmstate_yaw_run() {
   } else {
 
 #ifdef PDEBUG
-    pixels.setPixelColor(7, 100, 0, 0);
+    pixels.setPixelColor(6, 100, 0, 0);
     pixels.show();
 #endif
 
@@ -928,7 +928,7 @@ void loop() {
           mstate_reset();
           overmstate_reset();
           returning_to_base = false;
-          pixels.setPixelColor(3, 150, 0, 0);
+          pixels.setPixelColor(7, 150, 0, 0);
           pixels.show();
           Serial.write('1');
         }
@@ -974,7 +974,7 @@ void loop() {
           mstate_reset();
           overmstate_reset();
           returning_to_base = false;
-          pixels.setPixelColor(3, 0, 150, 0);
+          pixels.setPixelColor(7, 0, 150, 0);
           pixels.show();
           Serial.write('1');
         }
