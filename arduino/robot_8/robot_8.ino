@@ -79,57 +79,53 @@ enum class overmstate_e {
 ////////////////////////////////////////////////////
 // consts
 
-const angle_e return_to_base_dir[7][7] = {
-  { EAST, SOUTH, WEST, WEST, WEST, WEST, WEST },
-  { EAST, SOUTH, WEST, WEST, WEST, WEST, WEST },
-  { EAST, SOUTH, WEST, WEST, WEST, WEST, WEST },
-  { EAST, INVALID, WEST, WEST, WEST, WEST, WEST },
-  { EAST, EAST, EAST, NORTH, WEST, WEST, WEST },
-  { EAST, EAST, EAST, NORTH, WEST, WEST, WEST },
-  { EAST, EAST, EAST, NORTH, WEST, WEST, WEST },
+#define GRIDDIMENSIONS [6][6]
+
+const angle_e return_to_base_dir GRIDDIMENSIONS = {
+  { SOUTH, SOUTH, SOUTH, SOUTH, SOUTH, WEST },
+  { EAST, SOUTH, WEST, WEST, WEST, WEST },
+  { EAST, SOUTH, WEST, WEST, WEST, WEST },
+  { EAST, INVALID, WEST, WEST, WEST, WEST },
+  { EAST, NORTH, WEST, WEST, INVALID, INVALID },
+  { EAST, NORTH, NORTH, NORTH, INVALID, INVALID },
 };
 
 const angle_e return_to_base_final_dir = EAST;
 
-
-const bool wall_north[7][7] = {
-  { true, true, true, true, true, true, true },
-  { false, false, false, false, false, false, false },
-  { false, false, false, false, false, false, false },
-  { false, false, false, false, false, false, false },
-  { true, true, true, false, false, false, false },
-  { true, true, true, false, false, false, false },
-  { false, false, false, false, false, false, false }
+const bool wall_north GRIDDIMENSIONS = {
+  { true, true, true, true, true, true },
+  { true, true, true, true, true, true },
+  { false, false, false, false, false, false },
+  { false, false, false, false, false, false },
+  { true, false, false, false, true, true },
+  { true, false, false, false, true, true }
 };
 
-const bool wall_south[7][7] = {
-  { false, false, false, false, false, false, false },
-  { false, false, false, false, false, false, false },
-  { false, false, false, false, false, false, false },
-  { false, false, false, false, false, false, false },
-  { true, true, true, false, false, false, false },
-  { false, false, false, false, false, false, false },
-  { true, true, true, true, true, true, true }
+const bool wall_south GRIDDIMENSIONS = {
+  { false, false, false, false, false, false },
+  { false, false, false, false, false, false },
+  { false, false, false, false, false, false },
+  { false, false, false, false, false, false },
+  { true, false, false, false, true, true },
+  { true, true, true, true, true, true }
 };
 
-const bool wall_west[7][7] = {
-  { true, false, false, false, false, false, false },
-  { true, false, false, false, false, false, false },
-  { true, false, false, false, false, false, false },
-  { true, false, false, false, false, false, false },
-  { true, false, false, false, false, false, false },
-  { true, false, false, false, false, true, false },
-  { true, false, false, false, false, true, false }
+const bool wall_west GRIDDIMENSIONS = {
+  { true, false, false, false, false, false },
+  { true, false, false, false, false, false },
+  { true, false, false, false, false, false },
+  { true, false, false, false, false, false },
+  { true, false, false, false, true, true },
+  { true, false, true, true, true, true }
 };
 
-const bool wall_east[7][7] = {
-  { false, false, false, false, false, false, true },
-  { false, false, false, false, false, false, true },
-  { false, false, false, false, false, false, true },
-  { false, false, false, false, false, false, true },
-  { false, false, false, false, false, false, true },
-  { false, false, false, false, true, false, true },
-  { false, false, false, false, true, false, true }
+const bool wall_east GRIDDIMENSIONS = {
+  { false, false, false, false, false, true },
+  { false, false, false, false, false, true },
+  { false, false, false, false, false, true },
+  { false, false, false, false, false, true },
+  { false, false, false, false, true, true },
+  { false, false, true, true, true, true }
 };
 
 ////////////////////////////////////////////////////
@@ -253,17 +249,13 @@ struct GridPosition {
           return GridPosition{ x: x, y: y - 1 };
         } else {
           switch (x) {
-            case 3:
-              return GridPosition{ x: 1, y: y - 1 };
-            case 4:
-              return GridPosition{ x: 2, y: y - 1 };
-            case 5:
-              return GridPosition{ x: 4, y: y - 1 };
-            case 6:
-              return GridPosition{ x: 5, y: y - 1 };
-            case 0:
             case 1:
+              return GridPosition{ x: 0, y: y - 1 };
             case 2:
+              return GridPosition{ x: 2, y: y - 1 };
+            case 3:
+              return GridPosition{ x: 4, y: y - 1 };
+            case 0:
             default:
               return GridPosition{ -1, -1 };
           }
@@ -277,17 +269,15 @@ struct GridPosition {
           return GridPosition{ x: x, y: y + 1 };
         } else {
           switch (x) {
-            case 1:
-              return GridPosition{ x: 3, y: y + 1 };
-            case 2:
-              return GridPosition{ x: 4, y: y + 1 };
-            case 3:
-              return GridPosition{ x: 5, y: y + 1 };
-            case 4:
-              return GridPosition{ x: 5, y: y + 1 };
-            case 5:
-              return GridPosition{ x: 6, y: y + 1 };
             case 0:
+            case 1:
+              return GridPosition{ x: 1, y: y + 1 };
+            case 2:
+            case 3:
+              return GridPosition{ x: 2, y: y + 1 };
+            case 4:
+            case 5:
+              return GridPosition{ x: 3, y: y + 1 };
             default:
               return GridPosition{ -1, -1 };
           }
