@@ -846,7 +846,7 @@ void setup() {
   pinMode(m1p2, OUTPUT);
   pinMode(m2p1, OUTPUT);
   pinMode(m2p2, OUTPUT);
-  //myservo.attach(servo);
+  myservo.attach(servo);
   pixels.begin();
 
   pinMode(m1e, INPUT_PULLUP);
