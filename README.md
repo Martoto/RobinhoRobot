@@ -56,22 +56,24 @@ This project also encompasses communications for all components coordinated thro
 <!-- ABOUT THE PROJECT -->
 ## About The Project
 
-![Product Name Screen Shot][product-screenshot]
+[![Robinho pitch][video-preview]](https://youtu.be/P5_xoSbDpS0)
 
-This project is my attempt at solving two separate problemas involving open satellite data: Classification of crops and prediction of crop yield, it uses Sentinel-1 SAR data and CatBoost modules for ML
+The main focus of the project was allowing a Esp32, micropython based robot, be controlled by block-based programming through a friendly web interface, supporting multi-users and live data transmission to the user via the robot's cameras.
 
-![Ranking](https://user-images.githubusercontent.com/11448710/229832092-9fa0b318-7b83-4496-9f9a-f62d03808a69.png)
+![Robinho diagram](robinho_diagram.png)
 
-I have achieved the third highest score in Brazil for both the classification and regression problems
 
-*R2 scores: 0.96 and 0.51* respectively
 ### Built With
 
 [Project details](https://educationalintegratedroboticsarena.blogspot.com/)
 
 
-* Python
-* Jupyter Notebook
+* C++ arduino libraries 
+* Python flask backend
+* Bootstrap
+* OpenCV
+* SQL Alchemy
+* PostgreSQL
 
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
@@ -89,19 +91,7 @@ Jupyter notebook
 
 ### Installation
 
-1. Get a free API Key at [Planetary computer](https://planetarycomputer.microsoft.com/dataset/sentinel-1-rtc)
-2. Clone the repo
-   ```sh
-   git clone https://github.com/Martoto/EY-Open-Science-Data-Challenge.git
-   ```
-3. Install PIP packages
-   ```sh
-   pip install -r requirements.txt
-   ```
-4. Enter your API in `import cells`
-   ```py
-   pc.settings.set_subscription_key('******')
-   ```
+TODO
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -133,7 +123,9 @@ Distributed under the MIT License. See `LICENSE.txt` for more information.
 [license-url]: https://github.com/othneildrew/Best-README-Template/blob/master/LICENSE.txt
 [linkedin-shield]: https://img.shields.io/badge/-LinkedIn-black.svg?style=for-the-badge&logo=linkedin&colorB=555
 [linkedin-url]: https://www.linkedin.com/in/daniel-salles-b0b1361a5/
-[product-screenshot]: https://user-images.githubusercontent.com/11448710/229826873-f55a8525-273b-43dd-97ba-90309911d27a.png
+[product-screenshot]: robinho_diagram.png
+[firmware-preview]: Arenasfirmware.png
+[video-preview]: https://img.youtube.com/vi/P5_xoSbDpS0/0.jpg
 [Next.js]: https://img.shields.io/badge/next.js-000000?style=for-the-badge&logo=nextdotjs&logoColor=white
 [Next-url]: https://nextjs.org/
 [React.js]: https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB
